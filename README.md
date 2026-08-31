@@ -9,6 +9,7 @@ after two seconds.
 
 - Four positions: top-left, top-right, bottom-left, and bottom-right
 - Overall size control from 60% to 200%
+- Display duration control from 1 to 10 seconds, defaulting to 3 seconds
 - On/off switch that stops input capture without removing the bar icon
 - Theme-aware Omarchy keycaps on every monitor
 - No Omarchy service entry point; a keep-loaded overlay owns the controller
@@ -63,7 +64,8 @@ needed.
 
 - Left-click the keyboard icon to open settings.
 - Right-click the icon to quickly turn capture on or off.
-- Use the four position buttons and size slider in the settings popup.
+- Use the position buttons, size slider, and duration slider in the settings
+  popup.
 
 ## Test and validate
 

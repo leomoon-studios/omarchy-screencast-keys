@@ -19,6 +19,8 @@ BarWidget {
   property string positionSetting: "bottom-right"
   property real scaleSetting: 1.0
   property real previewScale: scaleSetting
+  property real durationSetting: 3.0
+  property real previewDuration: durationSetting
   property string readerStatus: "starting"
   property string readerDetail: ""
 
@@ -67,6 +69,13 @@ BarWidget {
     send("setScale", next)
   }
 
+  function setDuration(value) {
+    var next = Math.max(1.0, Math.min(10.0, Math.round(Number(value) * 2) / 2))
+    durationSetting = next
+    previewDuration = next
+    send("setDuration", next)
+  }
+
   function loadState(raw) {
     var text = String(raw || "").trim()
     if (text === "") return
@@ -77,6 +86,10 @@ BarWidget {
       if (state.scale !== undefined) {
         scaleSetting = Number(state.scale)
         if (!sizeSlider.dragging) previewScale = scaleSetting
+      }
+      if (state.duration !== undefined) {
+        durationSetting = Number(state.duration)
+        if (!durationSlider.dragging) previewDuration = durationSetting
       }
       readerStatus = String(state.readerStatus || readerStatus)
       readerDetail = String(state.readerDetail || "")
@@ -93,6 +106,10 @@ BarWidget {
       if (settings.scale !== undefined) {
         scaleSetting = Number(settings.scale)
         if (!sizeSlider.dragging) previewScale = scaleSetting
+      }
+      if (settings.duration !== undefined) {
+        durationSetting = Number(settings.duration)
+        if (!durationSlider.dragging) previewDuration = durationSetting
       }
     } catch (error) {}
   }
@@ -256,6 +273,46 @@ BarWidget {
           horizontalAlignment: Text.AlignRight
           textFormat: Text.PlainText
           text: Math.round(root.previewScale * 100) + "%"
+          color: root.bar ? root.bar.foreground : Color.foreground
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.body
+        }
+      }
+
+      Row {
+        width: parent.width
+        spacing: Style.space(12)
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          textFormat: Text.PlainText
+          text: "DURATION"
+          color: Qt.darker(root.bar ? root.bar.foreground : Color.foreground, 1.45)
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.caption
+          font.bold: true
+          width: Style.space(70)
+        }
+
+        PanelSlider {
+          id: durationSlider
+          anchors.verticalCenter: parent.verticalCenter
+          width: parent.width - Style.space(122)
+          bar: root.bar
+          minimum: 1.0
+          maximum: 10.0
+          step: 0.5
+          value: root.previewDuration
+          onMoved: function(value) { root.previewDuration = value }
+          onReleased: function(value) { root.setDuration(value) }
+        }
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          width: Style.space(40)
+          horizontalAlignment: Text.AlignRight
+          textFormat: Text.PlainText
+          text: root.previewDuration.toFixed(1) + "s"
           color: root.bar ? root.bar.foreground : Color.foreground
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.body

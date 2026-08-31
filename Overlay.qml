@@ -21,6 +21,7 @@ Item {
   property bool captureEnabled: true
   property string position: "bottom-right"
   property real scaleFactor: 1.0
+  property real durationSeconds: 3.0
   property string readerStatus: captureEnabled ? "starting" : "off"
   property string readerDetail: ""
   property bool directoryReady: false
@@ -42,6 +43,12 @@ Item {
     var number = Number(value)
     if (!isFinite(number)) number = 1.0
     return Math.max(0.6, Math.min(2.0, Math.round(number * 20) / 20))
+  }
+
+  function normalizedDuration(value) {
+    var number = Number(value)
+    if (!isFinite(number)) number = 3.0
+    return Math.max(1.0, Math.min(10.0, Math.round(number * 2) / 2))
   }
 
   function boolValue(value, fallback) {
@@ -67,10 +74,12 @@ Item {
       ? String(parsed.position) : "bottom-right"
     scaleFactor = parsed && parsed.scale !== undefined
       ? normalizedScale(parsed.scale) : 1.0
+    durationSeconds = parsed && parsed.duration !== undefined
+      ? normalizedDuration(parsed.duration) : 3.0
     hydrating = false
     settingsReady = true
 
-    if (!parsed || parsed.version !== 1) scheduleSave()
+    if (!parsed || parsed.version !== 1 || parsed.duration === undefined) scheduleSave()
     reconcileReader()
   }
 
@@ -84,7 +93,8 @@ Item {
       version: 1,
       enabled: captureEnabled,
       position: position,
-      scale: scaleFactor
+      scale: scaleFactor,
+      duration: durationSeconds
     }
     settingsFile.setText(JSON.stringify(payload, null, 2) + "\n")
   }
@@ -110,6 +120,13 @@ Item {
     scheduleSave()
   }
 
+  function setDuration(value) {
+    var next = normalizedDuration(value)
+    if (Math.abs(durationSeconds - next) < 0.001) return
+    durationSeconds = next
+    scheduleSave()
+  }
+
   function clearEntries() {
     keyEntries.clear()
   }
@@ -132,7 +149,7 @@ Item {
       // in the visual delegate.
       keyText: clean.join("\u001f"),
       createdAt: stamp,
-      expiresAt: stamp + 2000
+      expiresAt: stamp + durationSeconds * 1000
     })
     while (keyEntries.count > 7) keyEntries.remove(keyEntries.count - 1)
   }
@@ -187,6 +204,7 @@ Item {
       enabled: captureEnabled,
       position: position,
       scale: scaleFactor,
+      duration: durationSeconds,
       readerStatus: readerStatus,
       readerDetail: readerDetail
     }
@@ -293,6 +311,11 @@ Item {
 
     function setScale(value: string): string {
       root.setScale(value)
+      return JSON.stringify(root.stateObject())
+    }
+
+    function setDuration(value: string): string {
+      root.setDuration(value)
       return JSON.stringify(root.stateObject())
     }
 
