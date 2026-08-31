@@ -17,7 +17,12 @@ Item {
     ? String(manifest.__sourceDir)
     : String(Qt.resolvedUrl(".")).replace(/^file:\/\//, "").replace(/\/$/, "")
   readonly property string readerPath: pluginDir === "" ? "" : pluginDir + "/scripts/key-reader.py"
-  readonly property string accessHelperPath: pluginDir === "" ? "" : pluginDir + "/scripts/input-access.sh"
+  readonly property string pythonPath: "/usr/bin/python3"
+  readonly property string mkdirPath: "/usr/bin/mkdir"
+  readonly property int maxChordKeys: 8
+  readonly property int maxLabelLength: 48
+  readonly property int maxReaderLineLength: 4096
+  readonly property int maxRestartAttempts: 5
 
   property bool captureEnabled: true
   property string position: "bottom-right"
@@ -29,6 +34,9 @@ Item {
   property bool settingsReady: false
   property bool hydrating: false
   property bool stoppingReader: false
+  property bool restartPending: false
+  property bool restartBlocked: false
+  property int restartAttempts: 0
   property double nowMs: Date.now()
 
   property alias entries: keyEntries
@@ -157,8 +165,8 @@ Item {
     if (!captureEnabled || !Array.isArray(keys) || keys.length === 0) return
 
     var clean = []
-    for (var i = 0; i < keys.length; i++) {
-      var label = String(keys[i] || "").trim()
+    for (var i = 0; i < Math.min(keys.length, maxChordKeys); i++) {
+      var label = String(keys[i] || "").trim().slice(0, maxLabelLength)
       if (label !== "") clean.push(label)
     }
     if (clean.length === 0) return
@@ -179,14 +187,21 @@ Item {
   function handleReaderLine(rawLine) {
     var line = String(rawLine || "").trim()
     if (line === "") return
+    if (line.length > maxReaderLineLength) {
+      readerStatus = "error"
+      readerDetail = "Oversized input-reader response"
+      return
+    }
 
     try {
       var message = JSON.parse(line)
       if (message.type === "key") {
         addKeys(message.keys)
       } else if (message.type === "status") {
-        readerStatus = String(message.state || "error")
-        readerDetail = String(message.detail || "")
+        var state = String(message.state || "error")
+        var allowed = ["ready", "permission-denied", "no-inputs", "error"]
+        readerStatus = allowed.indexOf(state) !== -1 ? state : "error"
+        readerDetail = String(message.detail || "").slice(0, 256)
       }
     } catch (error) {
       readerStatus = "error"
@@ -199,6 +214,10 @@ Item {
 
     if (!captureEnabled) {
       restartTimer.stop()
+      readerStabilityTimer.stop()
+      restartPending = false
+      restartBlocked = false
+      restartAttempts = 0
       stoppingReader = readerProcess.running
       readerProcess.running = false
       readerStatus = "off"
@@ -207,18 +226,35 @@ Item {
       return
     }
 
+    if (restartPending || restartBlocked) return
+
     stoppingReader = false
     if (!readerProcess.running) {
       readerStatus = "starting"
       readerDetail = ""
-      readerProcess.command = ["python3", readerPath]
+      readerProcess.command = [pythonPath, readerPath]
       readerProcess.running = true
+      readerStabilityTimer.restart()
     }
   }
 
-  function requestInputAccess() {
-    if (accessHelperPath === "") return
-    Quickshell.execDetached(["pkexec", accessHelperPath, "install"])
+  function scheduleReaderRestart(exitCode) {
+    if (restartAttempts >= maxRestartAttempts) {
+      restartPending = false
+      restartBlocked = true
+      readerStatus = "error"
+      readerDetail = "Input reader stopped after repeated failures"
+      return
+    }
+
+    restartAttempts += 1
+    restartPending = true
+    var delay = Math.min(30000, 500 * Math.pow(2, restartAttempts - 1))
+    restartTimer.interval = delay
+    readerStatus = "error"
+    readerDetail = "Input reader exited (" + exitCode + "); retrying in "
+      + (delay / 1000).toFixed(1) + "s"
+    restartTimer.restart()
   }
 
   function stateObject() {
@@ -243,7 +279,7 @@ Item {
 
   Process {
     id: ensureConfigDir
-    command: ["mkdir", "-p", root.configDir]
+    command: [root.mkdirPath, "-p", root.configDir]
     running: true
     onExited: function(exitCode) {
       root.directoryReady = exitCode === 0
@@ -291,30 +327,42 @@ Item {
       }
     }
     onExited: function(exitCode) {
+      readerStabilityTimer.stop()
       if (root.stoppingReader || !root.captureEnabled) {
         root.stoppingReader = false
         root.readerStatus = "off"
         return
       }
       root.readerStatus = "error"
-      root.readerDetail = "Input reader exited (" + exitCode + ")"
-      restartTimer.restart()
+      root.scheduleReaderRestart(exitCode)
     }
   }
 
   Timer {
     id: restartTimer
-    interval: 2000
+    interval: 500
     repeat: false
-    onTriggered: root.reconcileReader()
+    onTriggered: {
+      root.restartPending = false
+      root.reconcileReader()
+    }
   }
 
   Timer {
-    // Recover from a missed startup signal without running a background
-    // service. Once the reader is alive this timer disables itself.
+    id: readerStabilityTimer
+    interval: 30000
+    repeat: false
+    onTriggered: {
+      if (readerProcess.running) root.restartAttempts = 0
+    }
+  }
+
+  Timer {
+    // One post-construction reconciliation covers FileView and manifest
+    // ordering without creating an unbounded process restart loop.
     interval: 500
-    repeat: true
-    running: root.captureEnabled && (!root.settingsReady || !readerProcess.running)
+    repeat: false
+    running: true
     onTriggered: {
       if (!root.settingsReady) settingsFile.reload()
       root.reconcileReader()
@@ -369,11 +417,6 @@ Item {
     function reload(): string {
       settingsFile.reload()
       return "ok"
-    }
-
-    function grantInputAccess(): string {
-      root.requestInputAccess()
-      return "requested"
     }
 
     function demo(): string {

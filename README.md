@@ -5,6 +5,9 @@ click-through overlay. Keyboard and mouse-button chords are shown as individual
 rounded keycaps, such as `[SUPER] + [L]` or `[SUPER] + [RMB]`. Up to seven
 entries are kept on screen and each fades out after the configured duration.
 
+Requires Omarchy 4.0 or newer. Other desktops and standalone Quickshell
+configurations are not supported.
+
 ## Features
 
 - Four positions: top-left, top-right, bottom-left, and bottom-right
@@ -44,22 +47,16 @@ The plugin stores preferences at:
 ## Input access
 
 Wayland does not let an ordinary overlay observe keys typed into other apps.
-The plugin's bundled reader therefore opens Linux keyboard and pointer event devices
-read-only. If access is unavailable, open the bar menu and click **Grant input
-access**. This presents a PolicyKit authorization dialog and installs a udev
-rule for keyboard, mouse, touchpad, and pointing-stick event devices. The plugin never requests privileges during
-startup.
+The plugin's bundled reader therefore opens Linux keyboard and pointer event
+devices read-only using access already available to the Omarchy session. The
+plugin does not request elevated privileges or install udev rules. If input
+devices are unavailable, the menu reports **Global input access unavailable**
+without changing the system.
 
-To remove that permission later:
-
-```bash
-sudo ./scripts/input-access.sh remove
-```
-
-The reader sends key and mouse-button labels only to the running Omarchy Shell process. It does
-not create a log or store key history. Global capture can still observe keys
-entered into password fields, so switch the plugin off whenever it is not
-needed.
+The reader sends key and mouse-button labels only to the running Omarchy Shell
+process. It does not create a log or store key history. Global capture can
+still observe keys entered into password fields, so switch the plugin off
+whenever it is not needed.
 
 ## Controls
 
@@ -87,10 +84,10 @@ The `demo` IPC method previews the overlay without input permission:
 omarchy-shell leomoon-studios.omarchy-screencast-keys demo
 ```
 
-## Compatibility note
+## Compatibility
+
+Omarchy 4.0+ on Wayland is the only supported environment.
 
 Version 1 displays physical Linux key-code labels. Letter and punctuation
 labels therefore follow the standard physical layout rather than translating
 through the currently selected keyboard layout.
-
-See [PLUGIN.md](PLUGIN.md) for the design and acceptance criteria.

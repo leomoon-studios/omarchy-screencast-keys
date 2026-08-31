@@ -13,6 +13,7 @@ BarWidget {
   readonly property string pluginId: moduleName
   readonly property string home: Quickshell.env("HOME")
   readonly property string configPath: home + "/.config/" + pluginId + "/settings.json"
+  readonly property string omarchyShellPath: "/usr/share/omarchy/bin/omarchy-shell"
 
   property bool opened: false
   property bool popoutSwitchClosing: false
@@ -25,11 +26,10 @@ BarWidget {
   property string readerStatus: "starting"
   property string readerDetail: ""
 
-  readonly property bool accessProblem: readerStatus === "permission-denied"
   readonly property string statusLabel: {
     if (!captureEnabled || readerStatus === "off") return "Off"
     if (readerStatus === "ready") return "On"
-    if (readerStatus === "permission-denied") return "Input access required"
+    if (readerStatus === "permission-denied") return "Global input access unavailable"
     if (readerStatus === "no-inputs" || readerStatus === "no-keyboards") return "No input device found"
     if (readerStatus === "starting") return "Starting…"
     return "Reader error"
@@ -51,7 +51,7 @@ BarWidget {
   }
 
   function send(method, value) {
-    var command = ["omarchy-shell", "-q", pluginId, method]
+    var command = [omarchyShellPath, "-q", pluginId, method]
     if (value !== undefined) command.push(String(value))
     Quickshell.execDetached(command)
   }
@@ -139,7 +139,7 @@ BarWidget {
     id: stateProbe
     // The state call must not use -q: quiet mode deliberately suppresses the
     // JSON response, which would leave this widget displaying "Starting…".
-    command: ["omarchy-shell", root.pluginId, "state"]
+    command: [root.omarchyShellPath, root.pluginId, "state"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.loadState(text)
@@ -222,7 +222,7 @@ BarWidget {
       Toggle {
         width: parent.width
         label: "Show pressed keys"
-        description: "Stops global key capture when switched off"
+        description: "Stops global keyboard and mouse capture when switched off"
         checked: root.captureEnabled
         foreground: root.bar ? root.bar.foreground : Color.foreground
         accent: Color.accent
@@ -360,32 +360,25 @@ BarWidget {
         spacing: Style.space(10)
 
         Text {
-          width: parent.width - (grantButton.visible ? grantButton.width + parent.spacing : 0)
+          width: parent.width
           anchors.verticalCenter: parent.verticalCenter
           textFormat: Text.PlainText
           text: root.readerDetail !== "" && root.readerStatus !== "ready"
             ? root.statusLabel + " — " + root.readerDetail : root.statusLabel
-          color: root.accessProblem ? Color.urgent
+          color: root.readerStatus === "permission-denied" ? Color.urgent
             : Qt.darker(root.bar ? root.bar.foreground : Color.foreground, 1.35)
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.caption
           wrapMode: Text.WordWrap
         }
 
-        Button {
-          id: grantButton
-          visible: root.accessProblem
-          anchors.verticalCenter: parent.verticalCenter
-          text: "Grant input access"
-          onClicked: root.send("grantInputAccess")
-        }
       }
 
       Text {
         visible: root.captureEnabled
         width: parent.width
         textFormat: Text.PlainText
-        text: "Keys are observed globally, including in password fields. Turn this off when you are not recording."
+        text: "Keys and mouse buttons are observed globally, including in password fields. Turn this off when you are not recording."
         color: Qt.darker(root.bar ? root.bar.foreground : Color.foreground, 1.55)
         font.family: root.bar ? root.bar.fontFamily : Style.font.family
         font.pixelSize: Style.font.caption

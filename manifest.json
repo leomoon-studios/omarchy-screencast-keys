@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "leomoon-studios.omarchy-screencast-keys",
   "name": "Omarchy Screencast Keys",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "author": "LeoMoon Studios",
   "description": "Shows keyboard and mouse-button shortcuts in a configurable corner overlay.",
   "kinds": [
