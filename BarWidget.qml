@@ -1,0 +1,309 @@
+import QtQuick
+import QtQuick.Layouts
+import Quickshell
+import Quickshell.Io
+import qs.Commons
+import qs.Ui
+
+BarWidget {
+  id: root
+
+  moduleName: "leomoon-studios.omarchy-screencast-keys"
+
+  readonly property string pluginId: moduleName
+  readonly property string home: Quickshell.env("HOME")
+  readonly property string configPath: home + "/.config/" + pluginId + "/settings.json"
+
+  property bool opened: false
+  property bool captureEnabled: true
+  property string positionSetting: "bottom-right"
+  property real scaleSetting: 1.0
+  property real previewScale: scaleSetting
+  property string readerStatus: "starting"
+  property string readerDetail: ""
+
+  readonly property bool accessProblem: readerStatus === "permission-denied"
+  readonly property string statusLabel: {
+    if (!captureEnabled || readerStatus === "off") return "Off"
+    if (readerStatus === "ready") return "On"
+    if (readerStatus === "permission-denied") return "Input access required"
+    if (readerStatus === "no-keyboards") return "No keyboard found"
+    if (readerStatus === "starting") return "Starting…"
+    return "Reader error"
+  }
+
+  function open() {
+    opened = true
+    refreshState()
+    configFile.reload()
+  }
+
+  function close() { opened = false }
+  function toggle() { opened ? close() : open() }
+
+  function closeForPopoutSwitch() { close() }
+
+  function send(method, value) {
+    var command = ["omarchy-shell", "-q", pluginId, method]
+    if (value !== undefined) command.push(String(value))
+    Quickshell.execDetached(command)
+  }
+
+  function setEnabled(value) {
+    captureEnabled = !!value
+    readerStatus = captureEnabled ? "starting" : "off"
+    send("setEnabled", captureEnabled ? "true" : "false")
+  }
+
+  function setPosition(value) {
+    positionSetting = value
+    send("setPosition", value)
+  }
+
+  function setScale(value) {
+    var next = Math.max(0.6, Math.min(2.0, Math.round(Number(value) * 20) / 20))
+    scaleSetting = next
+    previewScale = next
+    send("setScale", next)
+  }
+
+  function loadState(raw) {
+    var text = String(raw || "").trim()
+    if (text === "") return
+    try {
+      var state = JSON.parse(text)
+      if (state.enabled !== undefined) captureEnabled = !!state.enabled
+      if (state.position) positionSetting = String(state.position)
+      if (state.scale !== undefined) {
+        scaleSetting = Number(state.scale)
+        if (!sizeSlider.dragging) previewScale = scaleSetting
+      }
+      readerStatus = String(state.readerStatus || readerStatus)
+      readerDetail = String(state.readerDetail || "")
+    } catch (error) {}
+  }
+
+  function loadSettings(raw) {
+    var text = String(raw || "").trim()
+    if (text === "") return
+    try {
+      var settings = JSON.parse(text)
+      if (settings.enabled !== undefined) captureEnabled = !!settings.enabled
+      if (settings.position) positionSetting = String(settings.position)
+      if (settings.scale !== undefined) {
+        scaleSetting = Number(settings.scale)
+        if (!sizeSlider.dragging) previewScale = scaleSetting
+      }
+    } catch (error) {}
+  }
+
+  function refreshState() {
+    if (!stateProbe.running) stateProbe.running = true
+  }
+
+  implicitWidth: iconButton.implicitWidth
+  implicitHeight: iconButton.implicitHeight
+
+  FileView {
+    id: configFile
+    path: root.configPath
+    watchChanges: true
+    printErrors: false
+    onLoaded: root.loadSettings(text())
+    onFileChanged: reload()
+  }
+
+  Process {
+    id: stateProbe
+    command: ["omarchy-shell", "-q", root.pluginId, "state"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.loadState(text)
+    }
+  }
+
+  Timer {
+    interval: root.opened ? 1000 : 5000
+    repeat: true
+    running: true
+    triggeredOnStart: true
+    onTriggered: root.refreshState()
+  }
+
+  WidgetButton {
+    id: iconButton
+    anchors.fill: parent
+    bar: root.bar
+    text: "󰌌"
+    active: root.captureEnabled
+    activeColor: Color.accent
+    dimmed: !root.captureEnabled
+    tooltipText: "Screencast keys: " + root.statusLabel
+    onPressed: function(button) {
+      if (button === Qt.RightButton) root.setEnabled(!root.captureEnabled)
+      else root.toggle()
+    }
+  }
+
+  PopupCard {
+    id: popup
+    anchorItem: iconButton
+    bar: root.bar
+    owner: root
+    open: root.opened
+    contentWidth: Style.space(380)
+    contentHeight: settingsColumn.implicitHeight + padding * 2
+
+    Column {
+      id: settingsColumn
+      width: parent.width
+      spacing: Style.space(14)
+
+      Text {
+        width: parent.width
+        textFormat: Text.PlainText
+        text: "Screencast Keys"
+        color: root.bar ? root.bar.foreground : Color.foreground
+        font.family: root.bar ? root.bar.fontFamily : Style.font.family
+        font.pixelSize: Style.font.heading
+        font.bold: true
+      }
+
+      Toggle {
+        width: parent.width
+        label: "Show pressed keys"
+        description: "Stops global key capture when switched off"
+        checked: root.captureEnabled
+        foreground: root.bar ? root.bar.foreground : Color.foreground
+        accent: Color.accent
+        fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+        onClicked: root.setEnabled(!root.captureEnabled)
+      }
+
+      Text {
+        width: parent.width
+        textFormat: Text.PlainText
+        text: "POSITION"
+        color: Qt.darker(root.bar ? root.bar.foreground : Color.foreground, 1.45)
+        font.family: root.bar ? root.bar.fontFamily : Style.font.family
+        font.pixelSize: Style.font.caption
+        font.bold: true
+      }
+
+      GridLayout {
+        width: parent.width
+        columns: 2
+        columnSpacing: Style.space(8)
+        rowSpacing: Style.space(8)
+
+        Button {
+          Layout.fillWidth: true
+          text: "Top left"
+          selected: root.positionSetting === "top-left"
+          onClicked: root.setPosition("top-left")
+        }
+        Button {
+          Layout.fillWidth: true
+          text: "Top right"
+          selected: root.positionSetting === "top-right"
+          onClicked: root.setPosition("top-right")
+        }
+        Button {
+          Layout.fillWidth: true
+          text: "Bottom left"
+          selected: root.positionSetting === "bottom-left"
+          onClicked: root.setPosition("bottom-left")
+        }
+        Button {
+          Layout.fillWidth: true
+          text: "Bottom right"
+          selected: root.positionSetting === "bottom-right"
+          onClicked: root.setPosition("bottom-right")
+        }
+      }
+
+      Row {
+        width: parent.width
+        spacing: Style.space(12)
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          textFormat: Text.PlainText
+          text: "SIZE"
+          color: Qt.darker(root.bar ? root.bar.foreground : Color.foreground, 1.45)
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.caption
+          font.bold: true
+          width: Style.space(42)
+        }
+
+        PanelSlider {
+          id: sizeSlider
+          anchors.verticalCenter: parent.verticalCenter
+          width: parent.width - Style.space(94)
+          bar: root.bar
+          minimum: 0.6
+          maximum: 2.0
+          step: 0.05
+          value: root.previewScale
+          onMoved: function(value) { root.previewScale = value }
+          onReleased: function(value) { root.setScale(value) }
+        }
+
+        Text {
+          anchors.verticalCenter: parent.verticalCenter
+          width: Style.space(40)
+          horizontalAlignment: Text.AlignRight
+          textFormat: Text.PlainText
+          text: Math.round(root.previewScale * 100) + "%"
+          color: root.bar ? root.bar.foreground : Color.foreground
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.body
+        }
+      }
+
+      Rectangle {
+        width: parent.width
+        height: 1
+        color: Util.alpha(root.bar ? root.bar.foreground : Color.foreground, 0.16)
+      }
+
+      Row {
+        width: parent.width
+        spacing: Style.space(10)
+
+        Text {
+          width: parent.width - (grantButton.visible ? grantButton.width + parent.spacing : 0)
+          anchors.verticalCenter: parent.verticalCenter
+          textFormat: Text.PlainText
+          text: root.readerDetail !== "" && root.readerStatus !== "ready"
+            ? root.statusLabel + " — " + root.readerDetail : root.statusLabel
+          color: root.accessProblem ? Color.urgent
+            : Qt.darker(root.bar ? root.bar.foreground : Color.foreground, 1.35)
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
+        }
+
+        Button {
+          id: grantButton
+          visible: root.accessProblem
+          anchors.verticalCenter: parent.verticalCenter
+          text: "Grant input access"
+          onClicked: root.send("grantInputAccess")
+        }
+      }
+
+      Text {
+        visible: root.captureEnabled
+        width: parent.width
+        textFormat: Text.PlainText
+        text: "Keys are observed globally, including in password fields. Turn this off when you are not recording."
+        color: Qt.darker(root.bar ? root.bar.foreground : Color.foreground, 1.55)
+        font.family: root.bar ? root.bar.fontFamily : Style.font.family
+        font.pixelSize: Style.font.caption
+        wrapMode: Text.WordWrap
+      }
+    }
+  }
+}
