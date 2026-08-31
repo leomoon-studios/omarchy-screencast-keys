@@ -180,7 +180,6 @@ BarWidget {
       Text {
         id: iconBadgeText
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: Style.space(1)
         text: "SCK"
         color: iconButton.active && iconButton.useActiveColor
           ? iconButton.activeColor : iconButton.foreground
