@@ -158,11 +158,38 @@ BarWidget {
     id: iconButton
     anchors.fill: parent
     bar: root.bar
-    text: "󰌌"
+    text: " "
+    labelVisible: false
+    fixedWidth: iconBadge.width + Style.space(4)
     active: root.captureEnabled
-    activeColor: Color.accent
+    activeColor: Color.urgent
     dimmed: !root.captureEnabled
     tooltipText: "Screencast keys: " + root.statusLabel
+
+    Rectangle {
+      id: iconBadge
+      anchors.centerIn: parent
+      width: iconBadgeText.implicitWidth + Style.space(4)
+      height: Math.max(Style.space(12), iconBadgeText.font.pixelSize + Style.space(3))
+      color: "transparent"
+      border.width: Math.max(1, Style.normalBorderWidth)
+      border.color: iconButton.active && iconButton.useActiveColor
+        ? iconButton.activeColor : iconButton.foreground
+      radius: Style.cornerRadius
+
+      Text {
+        id: iconBadgeText
+        anchors.centerIn: parent
+        anchors.verticalCenterOffset: Style.space(1)
+        text: "SCK"
+        color: iconButton.active && iconButton.useActiveColor
+          ? iconButton.activeColor : iconButton.foreground
+        font.family: root.bar ? root.bar.fontFamily : Style.font.family
+        font.pixelSize: Math.max(Style.space(6), Math.round(Style.font.caption * 0.62))
+        renderType: Text.NativeRendering
+      }
+    }
+
     onPressed: function(button) {
       if (button === Qt.RightButton) root.setEnabled(!root.captureEnabled)
       else root.toggle()
