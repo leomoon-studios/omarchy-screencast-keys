@@ -1,15 +1,16 @@
 # Omarchy Screencast Keys
 
 An Omarchy Shell plugin by LeoMoon Studios that displays pressed keys in a
-click-through overlay. Chords are shown as individual rounded keycaps, such as
-`[SUPER] + [L]`. Up to seven entries are kept on screen and each fades out
-after two seconds.
+click-through overlay. Keyboard and mouse-button chords are shown as individual
+rounded keycaps, such as `[SUPER] + [L]` or `[SUPER] + [RMB]`. Up to seven
+entries are kept on screen and each fades out after the configured duration.
 
 ## Features
 
 - Four positions: top-left, top-right, bottom-left, and bottom-right
 - Overall size control from 60% to 200%
 - Display duration control from 1 to 10 seconds, defaulting to 3 seconds
+- Left, middle, and right mouse buttons shown as LMB, MMB, and RMB
 - On/off switch that stops input capture without removing the bar icon
 - Theme-aware Omarchy keycaps on every monitor
 - No Omarchy service entry point; a keep-loaded overlay owns the controller
@@ -43,10 +44,10 @@ The plugin stores preferences at:
 ## Input access
 
 Wayland does not let an ordinary overlay observe keys typed into other apps.
-The plugin's bundled reader therefore opens Linux keyboard event devices
+The plugin's bundled reader therefore opens Linux keyboard and pointer event devices
 read-only. If access is unavailable, open the bar menu and click **Grant input
 access**. This presents a PolicyKit authorization dialog and installs a udev
-rule for keyboard event devices. The plugin never requests privileges during
+rule for keyboard, mouse, touchpad, and pointing-stick event devices. The plugin never requests privileges during
 startup.
 
 To remove that permission later:
@@ -55,20 +56,20 @@ To remove that permission later:
 sudo ./scripts/input-access.sh remove
 ```
 
-The reader sends key labels only to the running Omarchy Shell process. It does
+The reader sends key and mouse-button labels only to the running Omarchy Shell process. It does
 not create a log or store key history. Global capture can still observe keys
 entered into password fields, so switch the plugin off whenever it is not
 needed.
 
 ## Controls
 
-- Left-click the keyboard icon to open settings.
+- Left-click the SCK badge to open settings.
 - Right-click the icon to quickly turn capture on or off.
 - Use the position buttons, size slider, and duration slider in the settings
   popup.
 - The popup stays open while global shortcuts are pressed, making it possible
-  to include the menu in a screenshot or recording. Click the icon again to
-  close it.
+  to include the menu in a screenshot or recording. Click outside it or click
+  the badge again to close it.
 - Omarchy's `SUPER+CTRL+1` through `SUPER+CTRL+9` shortcuts can open it by its
   numbered position among panel-capable icons in the bar's right section.
 

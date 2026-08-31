@@ -30,7 +30,7 @@ BarWidget {
     if (!captureEnabled || readerStatus === "off") return "Off"
     if (readerStatus === "ready") return "On"
     if (readerStatus === "permission-denied") return "Input access required"
-    if (readerStatus === "no-keyboards") return "No keyboard found"
+    if (readerStatus === "no-inputs" || readerStatus === "no-keyboards") return "No input device found"
     if (readerStatus === "starting") return "Starting…"
     return "Reader error"
   }

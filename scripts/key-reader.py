@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read Linux keyboard events and emit privacy-preserving key labels as JSON.
+"""Read Linux keyboard and mouse-button events and emit labels as JSON.
 
 The process never stores input. Each emitted line is either a status object or
 one key/chord object for the Quickshell overlay.
@@ -24,6 +24,20 @@ KEY_ENTER = 28
 KEY_A = 30
 KEY_Z = 44
 KEY_SPACE = 57
+BTN_LEFT = 0x110
+BTN_RIGHT = 0x111
+BTN_MIDDLE = 0x112
+POINTER_BUTTON_NAMES = {
+    BTN_LEFT: "LMB",
+    BTN_RIGHT: "RMB",
+    BTN_MIDDLE: "MMB",
+    0x113: "MOUSE SIDE",
+    0x114: "MOUSE EXTRA",
+    0x115: "MOUSE FORWARD",
+    0x116: "MOUSE BACK",
+    0x117: "MOUSE TASK",
+}
+POINTER_BUTTONS = tuple(POINTER_BUTTON_NAMES)
 EVENT = struct.Struct("llHHI")
 BITS_PER_LONG = struct.calcsize("L") * 8
 
@@ -66,7 +80,7 @@ KEY_NAMES = {
     187: "F17", 188: "F18", 189: "F19", 190: "F20", 191: "F21",
     192: "F22", 193: "F23", 194: "F24", 217: "SEARCH", 224: "BRIGHTNESS DOWN",
     225: "BRIGHTNESS UP", 226: "MEDIA", 227: "DISPLAY", 240: "UNKNOWN",
-    248: "MIC MUTE",
+    248: "MIC MUTE", **POINTER_BUTTON_NAMES,
 }
 
 
@@ -102,6 +116,11 @@ HEADER_KEY_NAMES = _read_header_names()
 
 def key_name(code: int) -> str:
     return KEY_NAMES.get(code, HEADER_KEY_NAMES.get(code, f"KEY {code}"))
+
+
+def displayable_code(code: int) -> bool:
+    """Exclude touch/tool buttons while retaining keyboard and mouse keys."""
+    return code in POINTER_BUTTON_NAMES or code in KEY_NAMES or code in HEADER_KEY_NAMES
 
 
 class ModifierState:
@@ -165,15 +184,19 @@ def _bit_is_set(bits: bytes, bit: int) -> bool:
     return byte < len(bits) and bool(bits[byte] & (1 << (bit % 8)))
 
 
-def _is_keyboard_fd(fd: int) -> bool:
+def _is_supported_input_fd(fd: int) -> bool:
     event_types = _event_bits(fd, 0, 16)
     if not _bit_is_set(event_types, EV_KEY):
         return False
     keys = _event_bits(fd, EV_KEY, 96)
-    return all(_bit_is_set(keys, code) for code in (KEY_ENTER, KEY_A, KEY_Z, KEY_SPACE))
+    is_keyboard = all(
+        _bit_is_set(keys, code) for code in (KEY_ENTER, KEY_A, KEY_Z, KEY_SPACE)
+    )
+    has_pointer_button = any(_bit_is_set(keys, code) for code in POINTER_BUTTONS)
+    return is_keyboard or has_pointer_button
 
 
-def _sysfs_is_keyboard(path: str) -> bool:
+def _sysfs_is_supported_input(path: str) -> bool:
     name = os.path.basename(path)
     capability = f"/sys/class/input/{name}/device/capabilities/key"
     try:
@@ -182,7 +205,11 @@ def _sysfs_is_keyboard(path: str) -> bool:
         bitmap = 0
         for index, word in enumerate(reversed(words)):
             bitmap |= int(word, 16) << (index * BITS_PER_LONG)
-        return all(bitmap & (1 << code) for code in (KEY_ENTER, KEY_A, KEY_Z, KEY_SPACE))
+        is_keyboard = all(
+            bitmap & (1 << code) for code in (KEY_ENTER, KEY_A, KEY_Z, KEY_SPACE)
+        )
+        has_pointer_button = any(bitmap & (1 << code) for code in POINTER_BUTTONS)
+        return is_keyboard or has_pointer_button
     except (OSError, ValueError):
         # If sysfs cannot classify it, try opening it. The ioctl check remains
         # authoritative once access is available.
@@ -226,7 +253,7 @@ class EventReader:
         denied = 0
         candidates = 0
         for path in sorted(paths):
-            if path in self.devices or not _sysfs_is_keyboard(path):
+            if path in self.devices or not _sysfs_is_supported_input(path):
                 continue
             candidates += 1
             try:
@@ -238,7 +265,7 @@ class EventReader:
                 continue
 
             try:
-                if not _is_keyboard_fd(fd):
+                if not _is_supported_input_fd(fd):
                     os.close(fd)
                     continue
                 self.devices[path] = fd
@@ -246,15 +273,19 @@ class EventReader:
             except OSError:
                 os.close(fd)
 
-        if self.devices:
+        if denied:
+            self.status(
+                "permission-denied",
+                f"Permission is required for {denied} input device"
+                + ("s" if denied != 1 else ""),
+            )
+        elif self.devices:
             count = len(self.devices)
-            self.status("ready", f"{count} keyboard" + ("s" if count != 1 else ""))
-        elif denied:
-            self.status("permission-denied", "Permission is required to read keyboard events")
+            self.status("ready", f"{count} input device" + ("s" if count != 1 else ""))
         elif candidates or paths:
-            self.status("no-keyboards", "No readable keyboard device was found")
+            self.status("no-inputs", "No readable keyboard or mouse device was found")
         else:
-            self.status("no-keyboards", "No keyboard event devices were found")
+            self.status("no-inputs", "No keyboard or mouse event devices were found")
 
     def read_device(self, path: str, fd: int) -> None:
         try:
@@ -265,7 +296,7 @@ class EventReader:
                     return
                 usable = len(data) - (len(data) % EVENT.size)
                 for _seconds, _micros, event_type, code, value in EVENT.iter_unpack(data[:usable]):
-                    if event_type != EV_KEY:
+                    if event_type != EV_KEY or not displayable_code(code):
                         continue
                     for keys in self.formatter.handle(code, value, path):
                         emit({"type": "key", "keys": keys})
@@ -289,12 +320,12 @@ class EventReader:
 
 def demo() -> None:
     emit({"type": "status", "state": "ready", "detail": "Demo input", "devices": 1})
-    for keys in (["SUPER", "L"], ["CTRL", "SHIFT", "P"], ["SPACE"]):
+    for keys in (["SUPER", "L"], ["SUPER", "RMB"], ["LMB"], ["SPACE"]):
         emit({"type": "key", "keys": keys})
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Emit global keyboard chords as JSON lines")
+    parser = argparse.ArgumentParser(description="Emit global keyboard and mouse chords as JSON lines")
     parser.add_argument("--demo", action="store_true", help="emit sample chords and exit")
     args = parser.parse_args()
     if args.demo:
