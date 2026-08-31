@@ -15,6 +15,7 @@ BarWidget {
   readonly property string configPath: home + "/.config/" + pluginId + "/settings.json"
 
   property bool opened: false
+  property bool popoutSwitchClosing: false
   property bool captureEnabled: true
   property string positionSetting: "bottom-right"
   property real scaleSetting: 1.0
@@ -43,7 +44,11 @@ BarWidget {
   function close() { opened = false }
   function toggle() { opened ? close() : open() }
 
-  function closeForPopoutSwitch() { close() }
+  function closeForPopoutSwitch() {
+    popoutSwitchClosing = true
+    close()
+    Qt.callLater(function() { root.popoutSwitchClosing = false })
+  }
 
   function send(method, value) {
     var command = ["omarchy-shell", "-q", pluginId, method]
@@ -162,17 +167,12 @@ BarWidget {
     }
   }
 
-  PopupCard {
+  KeyboardPanel {
     id: popup
     anchorItem: iconButton
     bar: root.bar
     owner: root
     open: root.opened
-    // A click-mode PopupCard owns a Hyprland focus grab and closes when a
-    // global shortcut moves focus (for example the screenshot shortcut). This
-    // menu is intentionally persistent so it can appear in the recording or
-    // screenshot; the icon and bar popout coordinator still close it.
-    triggerMode: "hover"
     contentWidth: Style.space(380)
     contentHeight: settingsColumn.implicitHeight + padding * 2
 
