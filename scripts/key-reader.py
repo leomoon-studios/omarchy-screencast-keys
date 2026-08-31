@@ -40,6 +40,10 @@ POINTER_BUTTON_NAMES = {
 POINTER_BUTTONS = tuple(POINTER_BUTTON_NAMES)
 EVENT = struct.Struct("llHHI")
 BITS_PER_LONG = struct.calcsize("L") * 8
+MAX_OUTPUT_EVENTS_PER_SECOND = 120.0
+MAX_OUTPUT_BURST = 120.0
+MAX_READ_BATCHES = 16
+MAX_ERROR_DETAIL_LENGTH = 256
 
 MODIFIERS = {
     29: "CTRL",       # left ctrl
@@ -86,6 +90,12 @@ KEY_NAMES = {
 
 def emit(payload: dict) -> None:
     print(json.dumps(payload, separators=(",", ":")), flush=True)
+
+
+def error_detail(error: BaseException) -> str:
+    """Return a bounded diagnostic that never includes captured input."""
+    detail = f"Input reader failed: {type(error).__name__}: {error}"
+    return detail[:MAX_ERROR_DETAIL_LENGTH]
 
 
 def _read_header_names() -> dict[int, str]:
@@ -169,6 +179,33 @@ class KeyChordFormatter:
         }
 
 
+class TokenBucket:
+    """Bound event output while allowing short bursts of normal input."""
+
+    def __init__(
+        self,
+        rate: float = MAX_OUTPUT_EVENTS_PER_SECOND,
+        burst: float = MAX_OUTPUT_BURST,
+        clock=time.monotonic,
+    ) -> None:
+        self.rate = max(0.0, float(rate))
+        self.burst = max(1.0, float(burst))
+        self.clock = clock
+        self.tokens = self.burst
+        self.updated_at = self.clock()
+
+    def allow(self) -> bool:
+        now = self.clock()
+        elapsed = max(0.0, now - self.updated_at)
+        if now >= self.updated_at:
+            self.updated_at = now
+        self.tokens = min(self.burst, self.tokens + elapsed * self.rate)
+        if self.tokens < 1.0:
+            return False
+        self.tokens -= 1.0
+        return True
+
+
 def _ioc_read(number: int, size: int) -> int:
     return (2 << 30) | (size << 16) | (ord("E") << 8) | number
 
@@ -221,6 +258,7 @@ class EventReader:
         self.selector = selectors.DefaultSelector()
         self.devices: dict[str, int] = {}
         self.formatter = KeyChordFormatter()
+        self.output_limiter = TokenBucket()
         self._last_status: tuple[str, str, int] | None = None
 
     def status(self, state: str, detail: str = "") -> None:
@@ -289,7 +327,9 @@ class EventReader:
 
     def read_device(self, path: str, fd: int) -> None:
         try:
-            while True:
+            # Bound each selector dispatch so a faulty or synthetic device
+            # cannot monopolize the reader loop indefinitely.
+            for _batch in range(MAX_READ_BATCHES):
                 data = os.read(fd, EVENT.size * 64)
                 if not data:
                     self.close_device(path)
@@ -299,7 +339,8 @@ class EventReader:
                     if event_type != EV_KEY or not displayable_code(code):
                         continue
                     for keys in self.formatter.handle(code, value, path):
-                        emit({"type": "key", "keys": keys})
+                        if self.output_limiter.allow():
+                            emit({"type": "key", "keys": keys})
         except BlockingIOError:
             return
         except OSError as error:
@@ -337,7 +378,7 @@ def main() -> int:
     except KeyboardInterrupt:
         return 0
     except Exception as error:  # Keep error output free of captured key values.
-        print(f"Input reader failed: {type(error).__name__}: {error}", file=sys.stderr, flush=True)
+        print(error_detail(error), file=sys.stderr, flush=True)
         return 1
     return 0
 

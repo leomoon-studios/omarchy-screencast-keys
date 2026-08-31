@@ -17,7 +17,7 @@ BarWidget {
 
   property bool opened: false
   property bool popoutSwitchClosing: false
-  property bool captureEnabled: true
+  property bool captureEnabled: false
   property string positionSetting: "bottom-right"
   property real scaleSetting: 1.0
   property real previewScale: scaleSetting
@@ -103,10 +103,17 @@ BarWidget {
 
   function loadSettings(raw) {
     var text = String(raw || "").trim()
-    if (text === "") return
+    if (text === "") {
+      captureEnabled = false
+      return
+    }
     try {
       var settings = JSON.parse(text)
-      if (settings.enabled !== undefined) captureEnabled = !!settings.enabled
+      if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
+        captureEnabled = false
+        return
+      }
+      captureEnabled = settings.enabled === true
       if (settings.position) positionSetting = String(settings.position)
       if (settings.scale !== undefined) {
         scaleSetting = Number(settings.scale)
@@ -116,7 +123,9 @@ BarWidget {
         durationSetting = Number(settings.duration)
         if (!durationSlider.dragging) previewDuration = durationSetting
       }
-    } catch (error) {}
+    } catch (error) {
+      captureEnabled = false
+    }
   }
 
   function refreshState() {

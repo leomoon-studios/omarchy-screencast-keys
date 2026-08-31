@@ -15,6 +15,7 @@ configurations are not supported.
 - Display duration control from 1 to 10 seconds, defaulting to 3 seconds
 - Left, middle, and right mouse buttons shown as LMB, MMB, and RMB
 - On/off switch that stops input capture without removing the bar icon
+- Capture defaults to off when settings are missing or malformed
 - Theme-aware Omarchy keycaps on every monitor
 - No Omarchy service entry point; a keep-loaded overlay owns the controller
 - No key history or captured text is written to disk
@@ -52,6 +53,9 @@ devices read-only using access already available to the Omarchy session. The
 plugin does not request elevated privileges or install udev rules. If input
 devices are unavailable, the menu reports **Global input access unavailable**
 without changing the system.
+
+Capture starts disabled on a fresh installation and remains disabled if the
+settings file is missing or malformed.
 
 The reader sends key and mouse-button labels only to the running Omarchy Shell
 process. It does not create a log or store key history. Global capture can

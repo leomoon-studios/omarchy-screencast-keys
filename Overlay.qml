@@ -24,7 +24,7 @@ Item {
   readonly property int maxReaderLineLength: 4096
   readonly property int maxRestartAttempts: 5
 
-  property bool captureEnabled: true
+  property bool captureEnabled: false
   property string position: "bottom-right"
   property real scaleFactor: 1.0
   property real durationSeconds: 3.0
@@ -98,8 +98,10 @@ Item {
     }
 
     hydrating = true
-    captureEnabled = parsed && parsed.enabled !== undefined
-      ? boolValue(parsed.enabled, true) : true
+    // Settings are security-sensitive: only a literal JSON boolean true may
+    // enable global capture. Missing, malformed, and loosely typed values fail
+    // closed. IPC still uses boolValue() for its string arguments.
+    captureEnabled = parsed && parsed.enabled === true
     position = parsed && validPosition(parsed.position)
       ? String(parsed.position) : "bottom-right"
     scaleFactor = parsed && parsed.scale !== undefined
@@ -232,7 +234,7 @@ Item {
     if (!readerProcess.running) {
       readerStatus = "starting"
       readerDetail = ""
-      readerProcess.command = [pythonPath, readerPath]
+      readerProcess.command = [pythonPath, "-I", readerPath]
       readerProcess.running = true
       readerStabilityTimer.restart()
     }
@@ -322,7 +324,13 @@ Item {
     }
     stderr: SplitParser {
       onRead: function(line) {
-        var detail = String(line || "").trim()
+        var raw = String(line || "")
+        if (raw.length > root.maxReaderLineLength) {
+          root.readerStatus = "error"
+          root.readerDetail = "Oversized input-reader error"
+          return
+        }
+        var detail = raw.trim().slice(0, 256)
         if (detail !== "") root.readerDetail = detail
       }
     }

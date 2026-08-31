@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import importlib.util
+import os
 from pathlib import Path
+import tempfile
 import unittest
 
 
@@ -64,6 +66,69 @@ class KeyChordFormatterTests(unittest.TestCase):
     def test_friendly_key_names(self):
         self.assertEqual(reader.key_name(111), "DELETE")
         self.assertEqual(reader.key_name(164), "PLAY/PAUSE")
+
+
+class TokenBucketTests(unittest.TestCase):
+    def setUp(self):
+        self.now = [100.0]
+        self.bucket = reader.TokenBucket(
+            rate=2.0,
+            burst=2.0,
+            clock=lambda: self.now[0],
+        )
+
+    def test_burst_is_bounded(self):
+        self.assertTrue(self.bucket.allow())
+        self.assertTrue(self.bucket.allow())
+        self.assertFalse(self.bucket.allow())
+
+    def test_tokens_refill_at_configured_rate(self):
+        self.bucket.allow()
+        self.bucket.allow()
+        self.now[0] += 0.49
+        self.assertFalse(self.bucket.allow())
+        self.now[0] += 0.01
+        self.assertTrue(self.bucket.allow())
+
+    def test_backward_clock_does_not_create_tokens(self):
+        self.bucket.allow()
+        self.bucket.allow()
+        self.now[0] -= 10.0
+        self.assertFalse(self.bucket.allow())
+        self.now[0] = 100.5
+        self.assertTrue(self.bucket.allow())
+
+
+class EventReaderRateLimitTests(unittest.TestCase):
+    def test_reader_limits_emitted_events(self):
+        captured = []
+        original_emit = reader.emit
+        reader.emit = captured.append
+        try:
+            with tempfile.TemporaryFile() as source:
+                for _index in range(20):
+                    source.write(reader.EVENT.pack(0, 0, reader.EV_KEY, reader.KEY_A, 1))
+                source.seek(0)
+                fd = os.dup(source.fileno())
+                event_reader = reader.EventReader()
+                event_reader.output_limiter = reader.TokenBucket(
+                    rate=0.0,
+                    burst=3.0,
+                    clock=lambda: 0.0,
+                )
+                event_reader.devices["test-device"] = fd
+                event_reader.read_device("test-device", fd)
+        finally:
+            reader.emit = original_emit
+
+        self.assertEqual(len(captured), 3)
+
+
+class ErrorDetailTests(unittest.TestCase):
+    def test_error_detail_is_bounded(self):
+        detail = reader.error_detail(RuntimeError("x" * 10_000))
+        self.assertLessEqual(len(detail), reader.MAX_ERROR_DETAIL_LENGTH)
+        self.assertTrue(detail.startswith("Input reader failed: RuntimeError:"))
 
 
 if __name__ == "__main__":
