@@ -244,25 +244,27 @@ BarWidget {
         }
       }
 
-      Row {
+      GridLayout {
         width: parent.width
-        spacing: Style.space(12)
+        columns: 3
+        columnSpacing: Style.space(12)
+        rowSpacing: Style.space(10)
 
         Text {
-          anchors.verticalCenter: parent.verticalCenter
+          Layout.preferredWidth: Style.space(70)
+          Layout.alignment: Qt.AlignVCenter
           textFormat: Text.PlainText
           text: "SIZE"
           color: Qt.darker(root.bar ? root.bar.foreground : Color.foreground, 1.45)
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.caption
           font.bold: true
-          width: Style.space(42)
         }
 
         PanelSlider {
           id: sizeSlider
-          anchors.verticalCenter: parent.verticalCenter
-          width: parent.width - Style.space(94)
+          Layout.fillWidth: true
+          Layout.alignment: Qt.AlignVCenter
           bar: root.bar
           minimum: 0.6
           maximum: 2.0
@@ -273,8 +275,8 @@ BarWidget {
         }
 
         Text {
-          anchors.verticalCenter: parent.verticalCenter
-          width: Style.space(40)
+          Layout.preferredWidth: Style.space(40)
+          Layout.alignment: Qt.AlignVCenter
           horizontalAlignment: Text.AlignRight
           textFormat: Text.PlainText
           text: Math.round(root.previewScale * 100) + "%"
@@ -282,27 +284,22 @@ BarWidget {
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.body
         }
-      }
-
-      Row {
-        width: parent.width
-        spacing: Style.space(12)
 
         Text {
-          anchors.verticalCenter: parent.verticalCenter
+          Layout.preferredWidth: Style.space(70)
+          Layout.alignment: Qt.AlignVCenter
           textFormat: Text.PlainText
           text: "DURATION"
           color: Qt.darker(root.bar ? root.bar.foreground : Color.foreground, 1.45)
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.caption
           font.bold: true
-          width: Style.space(70)
         }
 
         PanelSlider {
           id: durationSlider
-          anchors.verticalCenter: parent.verticalCenter
-          width: parent.width - Style.space(122)
+          Layout.fillWidth: true
+          Layout.alignment: Qt.AlignVCenter
           bar: root.bar
           minimum: 1.0
           maximum: 10.0
@@ -313,8 +310,8 @@ BarWidget {
         }
 
         Text {
-          anchors.verticalCenter: parent.verticalCenter
-          width: Style.space(40)
+          Layout.preferredWidth: Style.space(40)
+          Layout.alignment: Qt.AlignVCenter
           horizontalAlignment: Text.AlignRight
           textFormat: Text.PlainText
           text: root.previewDuration.toFixed(1) + "s"

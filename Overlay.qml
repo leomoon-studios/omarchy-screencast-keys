@@ -14,7 +14,8 @@ Item {
   property var shell: null
   property var manifest: null
   readonly property string pluginDir: manifest && manifest.__sourceDir
-    ? String(manifest.__sourceDir) : ""
+    ? String(manifest.__sourceDir)
+    : String(Qt.resolvedUrl(".")).replace(/^file:\/\//, "").replace(/\/$/, "")
   readonly property string readerPath: pluginDir === "" ? "" : pluginDir + "/scripts/key-reader.py"
   readonly property string accessHelperPath: pluginDir === "" ? "" : pluginDir + "/scripts/input-access.sh"
 
@@ -81,8 +82,6 @@ Item {
   }
 
   function loadSettings(raw) {
-    if (!directoryReady) return
-
     var parsed = null
     var text = String(raw || "").trim()
     if (text !== "") {
@@ -107,7 +106,7 @@ Item {
   }
 
   function scheduleSave() {
-    if (!settingsReady || hydrating) return
+    if (!settingsReady || !directoryReady || hydrating) return
     settingsSaveTimer.restart()
   }
 
@@ -235,13 +234,26 @@ Item {
 
   onPluginDirChanged: reconcileReader()
 
+  Component.onCompleted: {
+    // FileView and manifest injection can complete in either order. Loading
+    // once here, in addition to the post-mkdir reload, makes startup robust
+    // for both fresh installs and already-configured plugins.
+    settingsFile.reload()
+  }
+
   Process {
     id: ensureConfigDir
     command: ["mkdir", "-p", root.configDir]
     running: true
     onExited: function(exitCode) {
       root.directoryReady = exitCode === 0
-      if (root.directoryReady) settingsFile.reload()
+      if (root.directoryReady) {
+        settingsFile.reload()
+        if (root.settingsReady) {
+          root.scheduleSave()
+          root.reconcileReader()
+        }
+      }
       else {
         root.readerStatus = "error"
         root.readerDetail = "Could not create the configuration directory"
@@ -295,6 +307,18 @@ Item {
     interval: 2000
     repeat: false
     onTriggered: root.reconcileReader()
+  }
+
+  Timer {
+    // Recover from a missed startup signal without running a background
+    // service. Once the reader is alive this timer disables itself.
+    interval: 500
+    repeat: true
+    running: root.captureEnabled && (!root.settingsReady || !readerProcess.running)
+    onTriggered: {
+      if (!root.settingsReady) settingsFile.reload()
+      root.reconcileReader()
+    }
   }
 
   Timer {
