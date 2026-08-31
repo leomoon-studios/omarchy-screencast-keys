@@ -137,7 +137,9 @@ BarWidget {
 
   Process {
     id: stateProbe
-    command: ["omarchy-shell", "-q", root.pluginId, "state"]
+    // The state call must not use -q: quiet mode deliberately suppresses the
+    // JSON response, which would leave this widget displaying "Starting…".
+    command: ["omarchy-shell", root.pluginId, "state"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.loadState(text)
