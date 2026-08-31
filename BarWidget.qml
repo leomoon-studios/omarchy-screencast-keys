@@ -168,6 +168,11 @@ BarWidget {
     bar: root.bar
     owner: root
     open: root.opened
+    // A click-mode PopupCard owns a Hyprland focus grab and closes when a
+    // global shortcut moves focus (for example the screenshot shortcut). This
+    // menu is intentionally persistent so it can appear in the recording or
+    // screenshot; the icon and bar popout coordinator still close it.
+    triggerMode: "hover"
     contentWidth: Style.space(380)
     contentHeight: settingsColumn.implicitHeight + padding * 2
 

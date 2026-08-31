@@ -66,6 +66,11 @@ needed.
 - Right-click the icon to quickly turn capture on or off.
 - Use the position buttons, size slider, and duration slider in the settings
   popup.
+- The popup stays open while global shortcuts are pressed, making it possible
+  to include the menu in a screenshot or recording. Click the icon again to
+  close it.
+- Omarchy's `SUPER+CTRL+1` through `SUPER+CTRL+9` shortcuts can open it by its
+  numbered position among panel-capable icons in the bar's right section.
 
 ## Test and validate
 

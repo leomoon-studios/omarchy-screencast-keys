@@ -33,6 +33,29 @@ Item {
   property alias entries: keyEntries
   ListModel { id: keyEntries }
 
+  // Plugins that declare both overlay and bar-widget kinds are summoned
+  // through their overlay entry point. Bridge that shell-level lifecycle back
+  // to the visible bar popup so SUPER+CTRL+<number> behaves like an icon click.
+  function barPopupWidget() {
+    return shell && shell.bar && typeof shell.bar.findPanelWidget === "function"
+      ? shell.bar.findPanelWidget(pluginId) : null
+  }
+
+  readonly property bool opened: {
+    var widget = barPopupWidget()
+    return widget ? widget.opened === true : false
+  }
+
+  function open(payloadJson) {
+    var widget = barPopupWidget()
+    if (widget && typeof widget.open === "function") widget.open()
+  }
+
+  function close() {
+    var widget = barPopupWidget()
+    if (widget && typeof widget.close === "function") widget.close()
+  }
+
   function validPosition(value) {
     var candidate = String(value || "")
     return candidate === "top-left" || candidate === "top-right"
