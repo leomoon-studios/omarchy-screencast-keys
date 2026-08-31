@@ -126,7 +126,11 @@ Item {
 
     var stamp = Date.now()
     keyEntries.insert(0, {
-      keys: clean,
+      // ListModel turns array-valued roles into nested item models. Passing
+      // that role to a second Repeater exposes QQmlDMAbstractItemModelData
+      // wrappers instead of strings. Keep the role scalar and split it only
+      // in the visual delegate.
+      keyText: clean.join("\u001f"),
       createdAt: stamp,
       expiresAt: stamp + 2000
     })

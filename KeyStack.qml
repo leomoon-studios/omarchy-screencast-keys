@@ -44,8 +44,9 @@ Item {
 
     delegate: Item {
       id: keyRowSlot
-      required property var keys
+      required property string keyText
       required property double expiresAt
+      readonly property var labels: keyText.split("\u001f")
 
       width: stack.width
       height: keyRow.implicitHeight
@@ -61,7 +62,7 @@ Item {
         spacing: Style.spaceReal(7) * root.scaleFactor
 
         Repeater {
-          model: keyRowSlot.keys
+          model: keyRowSlot.labels
 
           Row {
             required property int index
@@ -90,7 +91,7 @@ Item {
             }
 
             Text {
-              visible: index < keyRowSlot.keys.length - 1
+              visible: index < keyRowSlot.labels.length - 1
               anchors.verticalCenter: parent.verticalCenter
               textFormat: Text.PlainText
               text: "+"
