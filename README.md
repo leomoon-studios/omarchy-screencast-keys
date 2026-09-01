@@ -4,6 +4,10 @@ An Omarchy Shell plugin by LeoMoon Studios that displays pressed keys in a click
 
 Requires Omarchy 4.0 or newer. Other desktops and standalone Quickshell configurations are not supported.
 
+## Preview
+
+![Omarchy Screencast Keys Enabled](preview.png)
+
 ## Features
 
 - Four positions: top-left, top-right, bottom-left, and bottom-right
