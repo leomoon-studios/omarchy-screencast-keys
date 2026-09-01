@@ -192,7 +192,11 @@ BarWidget {
     bar: root.bar
     text: " "
     labelVisible: false
-    fixedWidth: iconBadge.width + Style.space(4)
+    // Keep the badge inside the same fixed horizontal slot as ordinary bar
+    // icons. The content-width fallback made text badges sit closer together
+    // than OpticalGlyph-based widgets.
+    fixedWidth: iconButton.vertical ? -1 : Math.max(
+      Style.bar.iconSlot, iconBadge.width + Style.space(4))
     active: root.captureEnabled
     activeColor: Color.urgent
     dimmed: !root.captureEnabled
