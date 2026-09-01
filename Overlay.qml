@@ -13,6 +13,7 @@ Item {
 
   property var shell: null
   property var manifest: null
+  property var lockService: null
   readonly property string pluginDir: manifest && manifest.__sourceDir
     ? String(manifest.__sourceDir)
     : String(Qt.resolvedUrl(".")).replace(/^file:\/\//, "").replace(/\/$/, "")
@@ -96,6 +97,41 @@ Item {
     return fallback
   }
 
+  function lockIsActive() {
+    var service = lockService
+    if (!service && shell && typeof shell.serviceFor === "function")
+      service = shell.serviceFor("omarchy.lock")
+    return !!(service && service.locked === true)
+  }
+
+  function disableForLock() {
+    if (captureEnabled) {
+      captureEnabled = false
+      scheduleSave()
+    }
+    restartTimer.stop()
+    readerStabilityTimer.stop()
+    restartPending = false
+    restartBlocked = false
+    restartAttempts = 0
+    stoppingReader = readerProcess.running
+    readerProcess.running = false
+    readerStatus = "off"
+    readerDetail = ""
+    clearEntries()
+  }
+
+  function refreshLockState() {
+    var service = shell && typeof shell.serviceFor === "function"
+      ? shell.serviceFor("omarchy.lock") : null
+    if (lockService !== service) lockService = service
+    if (service && service.locked === true) disableForLock()
+  }
+
+  function handleLockStateChanged() {
+    if (lockIsActive()) disableForLock()
+  }
+
   function loadSettings(raw) {
     var parsed = null
     var text = String(raw || "").trim()
@@ -122,6 +158,7 @@ Item {
 
     if (!parsed || parsed.version !== 1 || parsed.duration === undefined
         || parsed.stackLimit === undefined) scheduleSave()
+    refreshLockState()
     reconcileReader()
   }
 
@@ -144,6 +181,10 @@ Item {
 
   function setCaptureEnabled(value) {
     var next = boolValue(value, captureEnabled)
+    if (next && lockIsActive()) {
+      disableForLock()
+      return
+    }
     if (captureEnabled === next) return
     captureEnabled = next
     scheduleSave()
@@ -233,6 +274,11 @@ Item {
   function reconcileReader() {
     if (!settingsReady || pluginDir === "") return
 
+    if (captureEnabled && lockIsActive()) {
+      disableForLock()
+      return
+    }
+
     if (!captureEnabled) {
       restartTimer.stop()
       readerStabilityTimer.stop()
@@ -297,6 +343,22 @@ Item {
     // once here, in addition to the post-mkdir reload, makes startup robust
     // for both fresh installs and already-configured plugins.
     settingsFile.reload()
+    refreshLockState()
+  }
+
+  Connections {
+    target: root.lockService
+    function onLockedChanged() { root.handleLockStateChanged() }
+  }
+
+  Timer {
+    // The first-party lock service can finish loading after this overlay. A
+    // light poll closes that lifecycle gap while Connections handles changes
+    // immediately once the service is available.
+    interval: 500
+    repeat: true
+    running: true
+    onTriggered: root.refreshLockState()
   }
 
   Process {

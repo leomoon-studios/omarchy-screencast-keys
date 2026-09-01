@@ -13,6 +13,8 @@ Requires Omarchy 4.0 or newer. Other desktops and standalone Quickshell configur
 - Left, middle, and right mouse buttons shown as LMB, MMB, and RMB
 - On/off switch that stops input capture without removing the bar icon
 - Capture defaults to off when settings are missing or malformed
+- Capture is automatically disabled when Omarchy locks the screen, including idle locks
+- Capture stays off after unlock until manually enabled again
 - Theme-aware Omarchy keycaps on every monitor
 - No Omarchy service entry point; a keep-loaded overlay owns the controller
 - No key history or captured text is written to disk
