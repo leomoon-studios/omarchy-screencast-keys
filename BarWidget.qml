@@ -23,6 +23,8 @@ BarWidget {
   property real previewScale: scaleSetting
   property real durationSetting: 3.0
   property real previewDuration: durationSetting
+  property int stackLimitSetting: 7
+  property int previewStackLimit: stackLimitSetting
   property string readerStatus: "starting"
   property string readerDetail: ""
 
@@ -81,6 +83,19 @@ BarWidget {
     send("setDuration", next)
   }
 
+  function normalizedStackLimit(value) {
+    var number = Number(value)
+    if (!isFinite(number)) number = 7
+    return Math.max(1, Math.min(15, Math.round(number)))
+  }
+
+  function setStackLimit(value) {
+    var next = normalizedStackLimit(value)
+    stackLimitSetting = next
+    previewStackLimit = next
+    send("setStackLimit", next)
+  }
+
   function loadState(raw) {
     var text = String(raw || "").trim()
     if (text === "") return
@@ -95,6 +110,10 @@ BarWidget {
       if (state.duration !== undefined) {
         durationSetting = Number(state.duration)
         if (!durationSlider.dragging) previewDuration = durationSetting
+      }
+      if (state.stackLimit !== undefined) {
+        stackLimitSetting = normalizedStackLimit(state.stackLimit)
+        if (!stackSlider.dragging) previewStackLimit = stackLimitSetting
       }
       readerStatus = String(state.readerStatus || readerStatus)
       readerDetail = String(state.readerDetail || "")
@@ -122,6 +141,10 @@ BarWidget {
       if (settings.duration !== undefined) {
         durationSetting = Number(settings.duration)
         if (!durationSlider.dragging) previewDuration = durationSetting
+      }
+      if (settings.stackLimit !== undefined) {
+        stackLimitSetting = normalizedStackLimit(settings.stackLimit)
+        if (!stackSlider.dragging) previewStackLimit = stackLimitSetting
       }
     } catch (error) {
       captureEnabled = false
@@ -352,6 +375,41 @@ BarWidget {
           horizontalAlignment: Text.AlignRight
           textFormat: Text.PlainText
           text: root.previewDuration.toFixed(1) + "s"
+          color: root.bar ? root.bar.foreground : Color.foreground
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.body
+        }
+
+        Text {
+          Layout.preferredWidth: Style.space(70)
+          Layout.alignment: Qt.AlignVCenter
+          textFormat: Text.PlainText
+          text: "VISIBLE KEYS"
+          color: Qt.darker(root.bar ? root.bar.foreground : Color.foreground, 1.45)
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.caption
+          font.bold: true
+        }
+
+        PanelSlider {
+          id: stackSlider
+          Layout.fillWidth: true
+          Layout.alignment: Qt.AlignVCenter
+          bar: root.bar
+          minimum: 1
+          maximum: 15
+          step: 1
+          value: root.previewStackLimit
+          onMoved: function(value) { root.previewStackLimit = Math.round(value) }
+          onReleased: function(value) { root.setStackLimit(value) }
+        }
+
+        Text {
+          Layout.preferredWidth: Style.space(40)
+          Layout.alignment: Qt.AlignVCenter
+          horizontalAlignment: Text.AlignRight
+          textFormat: Text.PlainText
+          text: root.previewStackLimit.toString()
           color: root.bar ? root.bar.foreground : Color.foreground
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.body

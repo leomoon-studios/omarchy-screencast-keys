@@ -28,6 +28,7 @@ Item {
   property string position: "bottom-right"
   property real scaleFactor: 1.0
   property real durationSeconds: 3.0
+  property int stackLimit: 7
   property string readerStatus: captureEnabled ? "starting" : "off"
   property string readerDetail: ""
   property bool directoryReady: false
@@ -83,6 +84,12 @@ Item {
     return Math.max(1.0, Math.min(10.0, Math.round(number * 2) / 2))
   }
 
+  function normalizedStackLimit(value) {
+    var number = Number(value)
+    if (!isFinite(number)) number = 7
+    return Math.max(1, Math.min(15, Math.round(number)))
+  }
+
   function boolValue(value, fallback) {
     if (value === true || String(value).toLowerCase() === "true" || String(value) === "1") return true
     if (value === false || String(value).toLowerCase() === "false" || String(value) === "0") return false
@@ -101,17 +108,20 @@ Item {
     // Settings are security-sensitive: only a literal JSON boolean true may
     // enable global capture. Missing, malformed, and loosely typed values fail
     // closed. IPC still uses boolValue() for its string arguments.
-    captureEnabled = parsed && parsed.enabled === true
+    captureEnabled = !!(parsed && parsed.enabled === true)
     position = parsed && validPosition(parsed.position)
       ? String(parsed.position) : "bottom-right"
     scaleFactor = parsed && parsed.scale !== undefined
       ? normalizedScale(parsed.scale) : 1.0
     durationSeconds = parsed && parsed.duration !== undefined
       ? normalizedDuration(parsed.duration) : 3.0
+    stackLimit = parsed && parsed.stackLimit !== undefined
+      ? normalizedStackLimit(parsed.stackLimit) : 7
     hydrating = false
     settingsReady = true
 
-    if (!parsed || parsed.version !== 1 || parsed.duration === undefined) scheduleSave()
+    if (!parsed || parsed.version !== 1 || parsed.duration === undefined
+        || parsed.stackLimit === undefined) scheduleSave()
     reconcileReader()
   }
 
@@ -126,7 +136,8 @@ Item {
       enabled: captureEnabled,
       position: position,
       scale: scaleFactor,
-      duration: durationSeconds
+      duration: durationSeconds,
+      stackLimit: stackLimit
     }
     settingsFile.setText(JSON.stringify(payload, null, 2) + "\n")
   }
@@ -159,6 +170,14 @@ Item {
     scheduleSave()
   }
 
+  function setStackLimit(value) {
+    var next = normalizedStackLimit(value)
+    if (stackLimit === next) return
+    stackLimit = next
+    while (keyEntries.count > stackLimit) keyEntries.remove(keyEntries.count - 1)
+    scheduleSave()
+  }
+
   function clearEntries() {
     keyEntries.clear()
   }
@@ -183,7 +202,7 @@ Item {
       createdAt: stamp,
       expiresAt: stamp + durationSeconds * 1000
     })
-    while (keyEntries.count > 7) keyEntries.remove(keyEntries.count - 1)
+    while (keyEntries.count > stackLimit) keyEntries.remove(keyEntries.count - 1)
   }
 
   function handleReaderLine(rawLine) {
@@ -265,6 +284,7 @@ Item {
       position: position,
       scale: scaleFactor,
       duration: durationSeconds,
+      stackLimit: stackLimit,
       readerStatus: readerStatus,
       readerDetail: readerDetail
     }
@@ -419,6 +439,11 @@ Item {
 
     function setDuration(value: string): string {
       root.setDuration(value)
+      return JSON.stringify(root.stateObject())
+    }
+
+    function setStackLimit(value: string): string {
+      root.setStackLimit(value)
       return JSON.stringify(root.stateObject())
     }
 

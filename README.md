@@ -1,6 +1,6 @@
 # Omarchy Screencast Keys
 
-An Omarchy Shell plugin by LeoMoon Studios that displays pressed keys in a click-through overlay. Keyboard and mouse-button chords are shown as individual rounded keycaps, such as `[SUPER] + [L]` or `[SUPER] + [RMB]`. Up to seven entries are kept on screen and each fades out after the configured duration.
+An Omarchy Shell plugin by LeoMoon Studios that displays pressed keys in a click-through overlay. Keyboard and mouse-button chords are shown as individual rounded keycaps, such as `[SUPER] + [L]` or `[SUPER] + [RMB]`. Up to the configured number of entries (seven by default) are kept on screen and each fades out after the configured duration.
 
 Requires Omarchy 4.0 or newer. Other desktops and standalone Quickshell configurations are not supported.
 
@@ -9,6 +9,7 @@ Requires Omarchy 4.0 or newer. Other desktops and standalone Quickshell configur
 - Four positions: top-left, top-right, bottom-left, and bottom-right
 - Overall size control from 60% to 200%
 - Display duration control from 1 to 10 seconds, defaulting to 3 seconds
+- Visible stack size control from 1 to 15 entries, defaulting to 7
 - Left, middle, and right mouse buttons shown as LMB, MMB, and RMB
 - On/off switch that stops input capture without removing the bar icon
 - Capture defaults to off when settings are missing or malformed
@@ -64,8 +65,8 @@ The reader sends key and mouse-button labels only to the running Omarchy Shell p
 
 - Left-click the SCK badge to open settings.
 - Right-click the icon to quickly turn capture on or off.
-- Use the position buttons, size slider, and duration slider in the settings
-  popup.
+- Use the position buttons, size slider, duration slider, and visible-keys
+  slider in the settings popup.
 - The popup stays open while global shortcuts are pressed, making it possible
   to include the menu in a screenshot or recording. Click outside it or click
   the badge again to close it.
