@@ -88,18 +88,26 @@ class PluginStructureBaselineTests(unittest.TestCase):
             with self.subTest(fragment=fragment):
                 self.assertNotIn(fragment, self.bar_widget)
 
-    def test_surface_is_persistent_full_screen_and_click_through(self):
+    def test_service_owns_one_persistent_surface_per_screen(self):
+        self.assertEqual(self.service.count("Variants {"), 1)
         self.assertIn("model: Quickshell.screens", self.service)
         self.assertEqual(self.service.count("PanelWindow {"), 1)
+        self.assertEqual(self.service.count("KeyStack {"), 1)
         self.assertNotIn("Loader {", self.service)
+        self.assertNotIn("Component {", self.service)
         self.assertIn(
             "visible: root.captureEnabled && keyEntries.count > 0",
             self.service,
         )
+        self.assertIn("entries: root.entries", self.service)
+        self.assertIn("nowMs: root.nowMs", self.service)
+
+    def test_surface_remains_passive_and_click_through(self):
         self.assertIn(
             "anchors { top: true; bottom: true; left: true; right: true }",
             self.service,
         )
+        self.assertIn('color: "transparent"', self.service)
         self.assertIn("exclusionMode: ExclusionMode.Ignore", self.service)
         self.assertIn("WlrLayershell.layer: WlrLayer.Overlay", self.service)
         self.assertIn(
