@@ -28,10 +28,23 @@ class PluginStructureBaselineTests(unittest.TestCase):
 
     def test_service_has_no_overlay_lifecycle_bridge(self):
         self.assertIn("property var shell: null", self.service)
+        self.assertIn(
+            'readonly property var lockService: shell', self.service
+        )
+        self.assertIn('shell.serviceFor("omarchy.lock")', self.service)
         self.assertNotIn("function barPopupWidget()", self.service)
         self.assertNotIn("readonly property bool opened:", self.service)
         self.assertNotIn("function open(", self.service)
         self.assertNotIn("function close(", self.service)
+        self.assertNotIn("function refreshLockState()", self.service)
+        self.assertNotIn("root.refreshLockState()", self.service)
+        self.assertNotRegex(
+            self.service,
+            re.compile(
+                r"Timer\s*\{[^}]*interval:\s*500[^}]*repeat:\s*true",
+                re.MULTILINE,
+            ),
+        )
 
     def test_bar_widget_binds_to_service_controller_directly(self):
         self.assertIn(
@@ -237,8 +250,6 @@ class PluginStructureBaselineTests(unittest.TestCase):
             self.key_stack,
         )
         self.assertIn("elide: Text.ElideRight", self.key_stack)
-        self.assertIn("function demoLong(): string", self.service)
-        self.assertIn('"EXTRA-LONG-KEY-LABEL-EIGHT"', self.service)
 
     def test_reader_settings_entries_and_expiry_have_one_owner(self):
         self.assertEqual(self.service.count("ListModel { id: keyEntries }"), 1)
@@ -253,13 +264,6 @@ class PluginStructureBaselineTests(unittest.TestCase):
         )
         self.assertNotIn("readerProcess", self.bar_widget)
         self.assertNotIn("keyEntries", self.bar_widget)
-
-    def test_state_reports_service_identity_and_model_count(self):
-        self.assertIn(
-            "readonly property double serviceStartedAt: Date.now()", self.service
-        )
-        self.assertIn("serviceStartedAt: serviceStartedAt", self.service)
-        self.assertIn("entryCount: keyEntries.count", self.service)
 
     def test_entry_lifetime_and_stack_limit_are_pinned(self):
         self.assertIn(

@@ -2,7 +2,7 @@
 """Read Linux keyboard and mouse-button events and emit labels as JSON.
 
 The process never stores input. Each emitted line is either a status object or
-one key/chord object for the Quickshell overlay.
+one key/chord object for the Quickshell service.
 """
 
 from __future__ import annotations

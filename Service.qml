@@ -14,7 +14,9 @@ Item {
 
   property var shell: null
   property var manifest: null
-  property var lockService: null
+  readonly property var lockService: shell
+    && typeof shell.serviceFor === "function"
+    ? shell.serviceFor("omarchy.lock") : null
   readonly property string pluginDir: manifest && manifest.__sourceDir
     ? String(manifest.__sourceDir)
     : String(Qt.resolvedUrl(".")).replace(/^file:\/\//, "").replace(/\/$/, "")
@@ -25,7 +27,6 @@ Item {
   readonly property int maxLabelLength: 48
   readonly property int maxReaderLineLength: 4096
   readonly property int maxRestartAttempts: 5
-  readonly property double serviceStartedAt: Date.now()
 
   property bool captureEnabled: false
   property string position: "bottom-right"
@@ -100,13 +101,6 @@ Item {
     clearEntries()
   }
 
-  function refreshLockState() {
-    var service = shell && typeof shell.serviceFor === "function"
-      ? shell.serviceFor("omarchy.lock") : null
-    if (lockService !== service) lockService = service
-    if (service && service.locked === true) disableForLock()
-  }
-
   function handleLockStateChanged() {
     if (lockIsActive()) disableForLock()
   }
@@ -137,7 +131,7 @@ Item {
 
     if (!parsed || parsed.version !== 1 || parsed.duration === undefined
         || parsed.stackLimit === undefined) scheduleSave()
-    refreshLockState()
+    handleLockStateChanged()
     reconcileReader()
   }
 
@@ -311,35 +305,24 @@ Item {
       duration: durationSeconds,
       stackLimit: stackLimit,
       readerStatus: readerStatus,
-      readerDetail: readerDetail,
-      serviceStartedAt: serviceStartedAt,
-      entryCount: keyEntries.count
+      readerDetail: readerDetail
     }
   }
 
   onPluginDirChanged: reconcileReader()
+  onLockServiceChanged: handleLockStateChanged()
 
   Component.onCompleted: {
     // FileView and manifest injection can complete in either order. Loading
     // once here, in addition to the post-mkdir reload, makes startup robust
     // for both fresh installs and already-configured plugins.
     settingsFile.reload()
-    refreshLockState()
+    handleLockStateChanged()
   }
 
   Connections {
     target: root.lockService
     function onLockedChanged() { root.handleLockStateChanged() }
-  }
-
-  Timer {
-    // The first-party lock service can finish loading after this overlay. A
-    // light poll closes that lifecycle gap while Connections handles changes
-    // immediately once the service is available.
-    interval: 500
-    repeat: true
-    running: true
-    onTriggered: root.refreshLockState()
   }
 
   Process {
@@ -499,16 +482,6 @@ Item {
       root.addKeys(["SUPER", "L"])
       root.addKeys(["CTRL", "SHIFT", "P"])
       root.addKeys(["SPACE"])
-      return "ok"
-    }
-
-    function demoLong(): string {
-      root.addKeys([
-        "EXTRA-LONG-KEY-LABEL-ONE", "EXTRA-LONG-KEY-LABEL-TWO",
-        "EXTRA-LONG-KEY-LABEL-THREE", "EXTRA-LONG-KEY-LABEL-FOUR",
-        "EXTRA-LONG-KEY-LABEL-FIVE", "EXTRA-LONG-KEY-LABEL-SIX",
-        "EXTRA-LONG-KEY-LABEL-SEVEN", "EXTRA-LONG-KEY-LABEL-EIGHT"
-      ])
       return "ok"
     }
   }
