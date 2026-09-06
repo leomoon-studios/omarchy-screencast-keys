@@ -55,6 +55,7 @@ class PluginStructureBaselineTests(unittest.TestCase):
         )
         controller_bindings = (
             "controller.captureEnabled",
+            "controller.hotkeysOnly",
             "controller.position",
             "controller.scaleFactor",
             "controller.durationSeconds",
@@ -68,6 +69,7 @@ class PluginStructureBaselineTests(unittest.TestCase):
 
         direct_calls = (
             "controller.setCaptureEnabled(!!value)",
+            "controller.setHotkeysOnly(!!value)",
             "controller.setPosition(value)",
             "controller.setScale(value)",
             "controller.setDuration(value)",
@@ -76,6 +78,27 @@ class PluginStructureBaselineTests(unittest.TestCase):
         for call in direct_calls:
             with self.subTest(call=call):
                 self.assertIn(call, self.bar_widget)
+
+    def test_hotkeys_only_defaults_off_and_filters_single_inputs(self):
+        service_fragments = (
+            "property bool hotkeysOnly: false",
+            "hotkeysOnly = !!(parsed && parsed.hotkeysOnly === true)",
+            "hotkeysOnly: hotkeysOnly",
+            "if (hotkeysOnly && clean.length < 2) return",
+            "function setHotkeysOnly(value: string): string",
+        )
+        for fragment in service_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.service)
+
+        bar_fragments = (
+            'label: "Hotkeys only"',
+            "checked: root.hotkeysOnlySetting",
+            "root.setHotkeysOnly(!root.hotkeysOnlySetting)",
+        )
+        for fragment in bar_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.bar_widget)
 
     def test_partial_input_access_status_reaches_the_bar(self):
         self.assertIn(

@@ -16,6 +16,7 @@ Requires Omarchy 4.0 or newer. Other desktops and standalone Quickshell configur
 - Visible stack size control from 1 to 15 entries, defaulting to 7
 - Left, middle, and right mouse buttons shown as LMB, MMB, and RMB
 - On/off switch that stops input capture without removing the bar icon
+- Optional hotkeys-only mode that hides single keys and mouse buttons while retaining keyboard and mouse combinations
 - Capture defaults to off when settings are missing or malformed
 - Capture is automatically disabled when Omarchy locks the screen, including idle locks
 - Capture stays off after unlock until manually enabled again
@@ -85,8 +86,8 @@ visibility, timer, model, or surface lifecycle hooks.
 
 - Left-click the SCK badge to open settings.
 - Right-click the icon to quickly turn capture on or off.
-- Use the position buttons, size slider, duration slider, and visible-keys
-  slider in the settings popup.
+- Use the hotkeys-only toggle, position buttons, size slider, duration slider,
+  and visible-keys slider in the settings popup.
 - The popup stays open while global shortcuts are pressed, making it possible
   to include the menu in a screenshot or recording. Click outside it or click
   the badge again to close it.

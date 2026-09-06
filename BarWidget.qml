@@ -16,6 +16,8 @@ BarWidget {
   property bool popoutSwitchClosing: false
   readonly property bool captureEnabled: controller
     ? controller.captureEnabled === true : false
+  readonly property bool hotkeysOnlySetting: controller
+    ? controller.hotkeysOnly === true : false
   readonly property string positionSetting: controller
     ? String(controller.position) : "bottom-right"
   readonly property real scaleSetting: controller
@@ -86,6 +88,11 @@ BarWidget {
   function setEnabled(value) {
     if (controller && typeof controller.setCaptureEnabled === "function")
       controller.setCaptureEnabled(!!value)
+  }
+
+  function setHotkeysOnly(value) {
+    if (controller && typeof controller.setHotkeysOnly === "function")
+      controller.setHotkeysOnly(!!value)
   }
 
   function setPosition(value) {
@@ -189,6 +196,17 @@ BarWidget {
         accent: Color.accent
         fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
         onClicked: root.setEnabled(!root.captureEnabled)
+      }
+
+      Toggle {
+        width: parent.width
+        label: "Hotkeys only"
+        description: "Hide single keys and buttons; keep keyboard and mouse combinations"
+        checked: root.hotkeysOnlySetting
+        foreground: root.bar ? root.bar.foreground : Color.foreground
+        accent: Color.accent
+        fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+        onClicked: root.setHotkeysOnly(!root.hotkeysOnlySetting)
       }
 
       Text {

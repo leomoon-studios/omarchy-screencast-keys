@@ -29,6 +29,7 @@ Item {
   readonly property int maxRestartAttempts: 5
 
   property bool captureEnabled: false
+  property bool hotkeysOnly: false
   property string position: "bottom-right"
   property real scaleFactor: 1.0
   property real durationSeconds: 3.0
@@ -118,6 +119,7 @@ Item {
     // enable global capture. Missing, malformed, and loosely typed values fail
     // closed. IPC still uses boolValue() for its string arguments.
     captureEnabled = !!(parsed && parsed.enabled === true)
+    hotkeysOnly = !!(parsed && parsed.hotkeysOnly === true)
     position = parsed && validPosition(parsed.position)
       ? String(parsed.position) : "bottom-right"
     scaleFactor = parsed && parsed.scale !== undefined
@@ -129,7 +131,8 @@ Item {
     hydrating = false
     settingsReady = true
 
-    if (!parsed || parsed.version !== 1 || parsed.duration === undefined
+    if (!parsed || parsed.version !== 1 || parsed.hotkeysOnly === undefined
+        || parsed.duration === undefined
         || parsed.stackLimit === undefined) scheduleSave()
     handleLockStateChanged()
     reconcileReader()
@@ -144,6 +147,7 @@ Item {
     var payload = {
       version: 1,
       enabled: captureEnabled,
+      hotkeysOnly: hotkeysOnly,
       position: position,
       scale: scaleFactor,
       duration: durationSeconds,
@@ -162,6 +166,19 @@ Item {
     captureEnabled = next
     scheduleSave()
     reconcileReader()
+  }
+
+  function setHotkeysOnly(value) {
+    var next = boolValue(value, hotkeysOnly)
+    if (hotkeysOnly === next) return
+    hotkeysOnly = next
+    if (hotkeysOnly) {
+      for (var i = keyEntries.count - 1; i >= 0; i--) {
+        if (String(keyEntries.get(i).keyText || "").split("\u001f").length < 2)
+          keyEntries.remove(i)
+      }
+    }
+    scheduleSave()
   }
 
   function setPosition(value) {
@@ -205,6 +222,7 @@ Item {
       if (label !== "") clean.push(label)
     }
     if (clean.length === 0) return
+    if (hotkeysOnly && clean.length < 2) return
 
     var stamp = Date.now()
     keyEntries.insert(0, {
@@ -300,6 +318,7 @@ Item {
   function stateObject() {
     return {
       enabled: captureEnabled,
+      hotkeysOnly: hotkeysOnly,
       position: position,
       scale: scaleFactor,
       duration: durationSeconds,
@@ -450,6 +469,11 @@ Item {
 
     function toggle(): string {
       root.setCaptureEnabled(!root.captureEnabled)
+      return JSON.stringify(root.stateObject())
+    }
+
+    function setHotkeysOnly(value: string): string {
+      root.setHotkeysOnly(value)
       return JSON.stringify(root.stateObject())
     }
 
