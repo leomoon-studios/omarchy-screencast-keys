@@ -88,6 +88,28 @@ class PluginStructureBaselineTests(unittest.TestCase):
             with self.subTest(fragment=fragment):
                 self.assertNotIn(fragment, self.bar_widget)
 
+    def test_slider_previews_stay_live_until_release_commits(self):
+        slider_guards = (
+            "when: !sizeSlider.dragging && !root.scaleCommitPending",
+            "when: !durationSlider.dragging && !root.durationCommitPending",
+            "when: !stackSlider.dragging && !root.stackCommitPending",
+            "root.scaleCommitPending = true",
+            "root.durationCommitPending = true",
+            "root.stackCommitPending = true",
+        )
+        for fragment in slider_guards:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.bar_widget)
+
+        commit_sequences = (
+            r"root\.setScale\(value\)\s+root\.scaleCommitPending = false",
+            r"root\.setDuration\(value\)\s+root\.durationCommitPending = false",
+            r"root\.setStackLimit\(value\)\s+root\.stackCommitPending = false",
+        )
+        for pattern in commit_sequences:
+            with self.subTest(pattern=pattern):
+                self.assertRegex(self.bar_widget, pattern)
+
     def test_service_owns_one_persistent_surface_per_screen(self):
         self.assertEqual(self.service.count("Variants {"), 1)
         self.assertIn("model: Quickshell.screens", self.service)

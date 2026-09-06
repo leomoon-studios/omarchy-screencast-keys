@@ -32,12 +32,15 @@ BarWidget {
   property real previewScale: 1.0
   property real previewDuration: 3.0
   property int previewStackLimit: 7
+  property bool scaleCommitPending: false
+  property bool durationCommitPending: false
+  property bool stackCommitPending: false
 
   Binding {
     target: root
     property: "previewScale"
     value: root.scaleSetting
-    when: !sizeSlider.dragging
+    when: !sizeSlider.dragging && !root.scaleCommitPending
     restoreMode: Binding.RestoreNone
   }
 
@@ -45,7 +48,7 @@ BarWidget {
     target: root
     property: "previewDuration"
     value: root.durationSetting
-    when: !durationSlider.dragging
+    when: !durationSlider.dragging && !root.durationCommitPending
     restoreMode: Binding.RestoreNone
   }
 
@@ -53,7 +56,7 @@ BarWidget {
     target: root
     property: "previewStackLimit"
     value: root.stackLimitSetting
-    when: !stackSlider.dragging
+    when: !stackSlider.dragging && !root.stackCommitPending
     restoreMode: Binding.RestoreNone
   }
 
@@ -255,8 +258,14 @@ BarWidget {
           maximum: 2.0
           step: 0.05
           value: root.previewScale
-          onMoved: function(value) { root.previewScale = value }
-          onReleased: function(value) { root.setScale(value) }
+          onMoved: function(value) {
+            root.scaleCommitPending = true
+            root.previewScale = value
+          }
+          onReleased: function(value) {
+            root.setScale(value)
+            root.scaleCommitPending = false
+          }
         }
 
         Text {
@@ -290,8 +299,14 @@ BarWidget {
           maximum: 10.0
           step: 0.5
           value: root.previewDuration
-          onMoved: function(value) { root.previewDuration = value }
-          onReleased: function(value) { root.setDuration(value) }
+          onMoved: function(value) {
+            root.durationCommitPending = true
+            root.previewDuration = value
+          }
+          onReleased: function(value) {
+            root.setDuration(value)
+            root.durationCommitPending = false
+          }
         }
 
         Text {
@@ -325,8 +340,14 @@ BarWidget {
           maximum: 15
           step: 1
           value: root.previewStackLimit
-          onMoved: function(value) { root.previewStackLimit = Math.round(value) }
-          onReleased: function(value) { root.setStackLimit(value) }
+          onMoved: function(value) {
+            root.stackCommitPending = true
+            root.previewStackLimit = Math.round(value)
+          }
+          onReleased: function(value) {
+            root.setStackLimit(value)
+            root.stackCommitPending = false
+          }
         }
 
         Text {
