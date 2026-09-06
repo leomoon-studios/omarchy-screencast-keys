@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, call, patch
 
 
 MODULE_PATH = Path(__file__).parents[1] / "scripts" / "key-reader.py"
@@ -129,6 +129,28 @@ class EventReaderRateLimitTests(unittest.TestCase):
         self.assertEqual(len(captured), 3)
 
 
+class EventReaderRecordTests(unittest.TestCase):
+    def test_truncated_event_record_is_ignored(self):
+        captured = []
+        complete = reader.EVENT.pack(0, 0, reader.EV_KEY, reader.KEY_A, 1)
+        truncated = reader.EVENT.pack(0, 0, reader.EV_KEY, 38, 1)[:-1]
+
+        with tempfile.TemporaryFile() as source:
+            source.write(complete + truncated)
+            source.seek(0)
+            fd = os.dup(source.fileno())
+            event_reader = reader.EventReader()
+            event_reader.devices["test-device"] = fd
+            try:
+                with patch.object(reader, "emit", captured.append):
+                    event_reader.read_device("test-device", fd)
+            finally:
+                event_reader.close_device("test-device")
+                event_reader.selector.close()
+
+        self.assertEqual(captured, [{"type": "key", "keys": ["A"]}])
+
+
 class EventReaderSynchronizationTests(unittest.TestCase):
     def read_events(self, events, pressed_modifiers):
         captured = []
@@ -214,6 +236,80 @@ class EventReaderStatusTests(unittest.TestCase):
         self.assertEqual(status["state"], "degraded")
         self.assertEqual(status["devices"], 1)
         self.assertIn("1 unavailable", status["detail"])
+
+    def test_rescan_opens_readable_device_when_another_is_denied(self):
+        captured = []
+        event_reader = reader.EventReader()
+        event_reader.selector.close()
+        event_reader.selector = Mock()
+        try:
+            with (
+                patch.object(reader, "emit", captured.append),
+                patch.object(
+                    reader.glob,
+                    "glob",
+                    return_value=["/dev/input/event0", "/dev/input/event1"],
+                ),
+                patch.object(reader, "_sysfs_is_supported_input", return_value=True),
+                patch.object(reader, "_is_supported_input_fd", return_value=True),
+                patch.object(
+                    reader.os,
+                    "open",
+                    side_effect=[10, PermissionError("denied")],
+                ),
+            ):
+                event_reader.rescan()
+        finally:
+            event_reader.selector.close()
+
+        self.assertEqual(event_reader.devices, {"/dev/input/event0": 10})
+        event_reader.selector.register.assert_called_once_with(
+            10, reader.selectors.EVENT_READ, "/dev/input/event0"
+        )
+        self.assertEqual(captured[-1]["state"], "degraded")
+        self.assertEqual(captured[-1]["devices"], 1)
+        self.assertIn("1 unavailable", captured[-1]["detail"])
+
+    def test_rescan_adds_and_removes_hot_plugged_devices(self):
+        event_reader = reader.EventReader()
+        event_reader.selector.close()
+        event_reader.selector = Mock()
+        event0 = "/dev/input/event0"
+        event1 = "/dev/input/event1"
+
+        with (
+            patch.object(reader, "emit"),
+            patch.object(
+                reader.glob,
+                "glob",
+                side_effect=[[event0], [event0, event1], [event1]],
+            ),
+            patch.object(reader, "_sysfs_is_supported_input", return_value=True),
+            patch.object(reader, "_is_supported_input_fd", return_value=True),
+            patch.object(reader.os, "open", side_effect=[10, 11]),
+            patch.object(reader.os, "close") as close,
+        ):
+            event_reader.rescan()
+            self.assertEqual(event_reader.devices, {event0: 10})
+
+            event_reader.rescan()
+            self.assertEqual(event_reader.devices, {event0: 10, event1: 11})
+            event_reader.formatter.handle(125, 1, event0)
+
+            event_reader.rescan()
+            self.assertEqual(event_reader.devices, {event1: 11})
+            self.assertEqual(event_reader.formatter.handle(38, 1, event1), [["L"]])
+
+        self.assertEqual(
+            event_reader.selector.register.call_args_list,
+            [
+                call(10, reader.selectors.EVENT_READ, event0),
+                call(11, reader.selectors.EVENT_READ, event1),
+            ],
+        )
+        event_reader.selector.unregister.assert_called_once_with(10)
+        close.assert_called_once_with(10)
+        event_reader.selector.close()
 
     def test_permission_denied_when_no_devices_are_readable(self):
         status = self.rescan_status(

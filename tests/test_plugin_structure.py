@@ -298,6 +298,37 @@ class PluginStructureBaselineTests(unittest.TestCase):
         self.assertNotIn("readerProcess", self.bar_widget)
         self.assertNotIn("keyEntries", self.bar_widget)
 
+    def test_failed_reader_restarts_are_bounded_and_back_off(self):
+        restart_fragments = (
+            "readonly property int maxRestartAttempts: 5",
+            "if (restartAttempts >= maxRestartAttempts)",
+            "restartBlocked = true",
+            'readerDetail = "Input reader stopped after repeated failures"',
+            "restartAttempts += 1",
+            "Math.min(30000, 500 * Math.pow(2, restartAttempts - 1))",
+            "restartPending = true",
+            "restartTimer.restart()",
+            "root.restartPending = false",
+            "root.reconcileReader()",
+            "if (readerProcess.running) root.restartAttempts = 0",
+        )
+        for fragment in restart_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.service)
+
+        self.assertRegex(
+            self.service,
+            re.compile(
+                r"onExited:\s*function\(exitCode\)\s*\{\s*"
+                r"readerStabilityTimer\.stop\(\)\s*"
+                r"if \(root\.stoppingReader \|\| !root\.captureEnabled\)\s*\{.*?"
+                r"return\s*\}\s*"
+                r'root\.readerStatus = "error"\s*'
+                r"root\.scheduleReaderRestart\(exitCode\)",
+                re.DOTALL,
+            ),
+        )
+
     def test_entry_lifetime_and_stack_limit_are_pinned(self):
         self.assertIn(
             "expiresAt: stamp + durationSeconds * 1000", self.service
