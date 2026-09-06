@@ -187,7 +187,10 @@ class PluginStructureBaselineTests(unittest.TestCase):
 
     def test_service_owns_one_persistent_surface_per_screen(self):
         self.assertEqual(self.service.count("Variants {"), 1)
-        self.assertIn("model: Quickshell.screens", self.service)
+        self.assertIn(
+            "model: root.rebuildingSurfaces ? [] : Quickshell.screens",
+            self.service,
+        )
         self.assertEqual(self.service.count("PanelWindow {"), 1)
         self.assertEqual(self.service.count("KeyStack {"), 1)
         self.assertNotIn("Loader {", self.service)
@@ -198,6 +201,29 @@ class PluginStructureBaselineTests(unittest.TestCase):
         )
         self.assertIn("entries: root.entries", self.service)
         self.assertIn("nowMs: root.nowMs", self.service)
+
+    def test_position_change_rebuilds_surfaces_after_debounce(self):
+        fragments = (
+            "property bool rebuildingSurfaces: false",
+            'property string pendingPosition: ""',
+            "pendingPosition = next",
+            "rebuildingSurfaces = true",
+            "surfaceRebuildTimer.restart()",
+            "id: surfaceRebuildTimer",
+            "interval: 50",
+            'if (root.pendingPosition !== "") root.position = root.pendingPosition',
+            'root.pendingPosition = ""',
+            "root.rebuildingSurfaces = false",
+            "model: root.rebuildingSurfaces ? [] : Quickshell.screens",
+        )
+        for fragment in fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.service)
+
+        self.assertLess(
+            self.service.index("root.position = root.pendingPosition"),
+            self.service.index("root.rebuildingSurfaces = false"),
+        )
 
     def test_surface_remains_passive_and_click_through(self):
         self.assertIn('color: "transparent"', self.service)

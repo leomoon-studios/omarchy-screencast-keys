@@ -44,6 +44,8 @@ Item {
   property bool restartPending: false
   property bool restartBlocked: false
   property int restartAttempts: 0
+  property bool rebuildingSurfaces: false
+  property string pendingPosition: ""
   property double nowMs: Date.now()
 
   property alias entries: keyEntries
@@ -215,9 +217,19 @@ Item {
   }
 
   function setPosition(value) {
-    if (!validPosition(value) || position === String(value)) return
-    position = String(value)
-    scheduleSave()
+    var next = String(value)
+    if (!validPosition(next)) return
+    var requested = pendingPosition !== "" ? pendingPosition : position
+    if (requested === next) return
+
+    // Layer-shell anchors are compositor state. Repositioning a mapped
+    // surface while its delegates are animating can leave an old buffer at an
+    // intermediate location. Unmap all variants for one tick, then recreate
+    // them at the final requested corner. Restarting the timer debounces rapid
+    // clicks so only the last corner is applied.
+    pendingPosition = next
+    rebuildingSurfaces = true
+    surfaceRebuildTimer.restart()
   }
 
   function setScale(value) {
@@ -416,6 +428,18 @@ Item {
     onTriggered: root.saveSettings()
   }
 
+  Timer {
+    id: surfaceRebuildTimer
+    interval: 50
+    repeat: false
+    onTriggered: {
+      if (root.pendingPosition !== "") root.position = root.pendingPosition
+      root.pendingPosition = ""
+      root.rebuildingSurfaces = false
+      root.scheduleSave()
+    }
+  }
+
   Process {
     id: readerProcess
     stdout: SplitParser {
@@ -545,7 +569,7 @@ Item {
   }
 
   Variants {
-    model: Quickshell.screens
+    model: root.rebuildingSurfaces ? [] : Quickshell.screens
 
     PanelWindow {
       id: keyWindow
