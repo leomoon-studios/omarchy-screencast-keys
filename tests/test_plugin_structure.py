@@ -13,36 +13,44 @@ class PluginStructureBaselineTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.manifest = json.loads((ROOT / "manifest.json").read_text())
-        cls.overlay = (ROOT / "Overlay.qml").read_text()
+        cls.service = (ROOT / "Service.qml").read_text()
         cls.key_stack = (ROOT / "KeyStack.qml").read_text()
         cls.bar_widget = (ROOT / "BarWidget.qml").read_text()
 
-    def test_manifest_keeps_overlay_and_bar_widget_loaded(self):
-        self.assertEqual(self.manifest["kinds"], ["overlay", "bar-widget"])
+    def test_manifest_keeps_service_and_bar_widget_loaded(self):
+        self.assertEqual(self.manifest["kinds"], ["service", "bar-widget"])
         self.assertTrue(self.manifest["keepLoaded"])
         self.assertEqual(
             self.manifest["entryPoints"],
-            {"overlay": "Overlay.qml", "barWidget": "BarWidget.qml"},
+            {"service": "Service.qml", "barWidget": "BarWidget.qml"},
         )
+        self.assertFalse((ROOT / "Overlay.qml").exists())
+
+    def test_service_has_no_overlay_lifecycle_bridge(self):
+        self.assertIn("property var shell: null", self.service)
+        self.assertNotIn("function barPopupWidget()", self.service)
+        self.assertNotIn("readonly property bool opened:", self.service)
+        self.assertNotIn("function open(", self.service)
+        self.assertNotIn("function close(", self.service)
 
     def test_surface_is_persistent_full_screen_and_click_through(self):
-        self.assertIn("model: Quickshell.screens", self.overlay)
-        self.assertEqual(self.overlay.count("PanelWindow {"), 1)
-        self.assertNotIn("Loader {", self.overlay)
+        self.assertIn("model: Quickshell.screens", self.service)
+        self.assertEqual(self.service.count("PanelWindow {"), 1)
+        self.assertNotIn("Loader {", self.service)
         self.assertIn(
             "visible: root.captureEnabled && keyEntries.count > 0",
-            self.overlay,
+            self.service,
         )
         self.assertIn(
             "anchors { top: true; bottom: true; left: true; right: true }",
-            self.overlay,
+            self.service,
         )
-        self.assertIn("exclusionMode: ExclusionMode.Ignore", self.overlay)
-        self.assertIn("WlrLayershell.layer: WlrLayer.Overlay", self.overlay)
+        self.assertIn("exclusionMode: ExclusionMode.Ignore", self.service)
+        self.assertIn("WlrLayershell.layer: WlrLayer.Overlay", self.service)
         self.assertIn(
-            "WlrLayershell.keyboardFocus: WlrKeyboardFocus.None", self.overlay
+            "WlrLayershell.keyboardFocus: WlrKeyboardFocus.None", self.service
         )
-        self.assertIn("mask: Region {}", self.overlay)
+        self.assertIn("mask: Region {}", self.service)
 
     def test_key_stack_transition_timings_are_pinned(self):
         transition_patterns = (
@@ -90,12 +98,12 @@ class PluginStructureBaselineTests(unittest.TestCase):
         self.assertIn("font.pixelSize: Style.font.subtitle * root.scaleFactor", self.key_stack)
 
     def test_reader_settings_entries_and_expiry_have_one_owner(self):
-        self.assertEqual(self.overlay.count("ListModel { id: keyEntries }"), 1)
-        self.assertEqual(self.overlay.count("id: readerProcess"), 1)
-        self.assertEqual(self.overlay.count("id: settingsFile"), 1)
-        self.assertEqual(self.overlay.count("id: settingsSaveTimer"), 1)
+        self.assertEqual(self.service.count("ListModel { id: keyEntries }"), 1)
+        self.assertEqual(self.service.count("id: readerProcess"), 1)
+        self.assertEqual(self.service.count("id: settingsFile"), 1)
+        self.assertEqual(self.service.count("id: settingsSaveTimer"), 1)
         self.assertEqual(
-            self.overlay.count(
+            self.service.count(
                 "Number(keyEntries.get(i).expiresAt) <= root.nowMs"
             ),
             1,
@@ -105,15 +113,15 @@ class PluginStructureBaselineTests(unittest.TestCase):
 
     def test_entry_lifetime_and_stack_limit_are_pinned(self):
         self.assertIn(
-            "expiresAt: stamp + durationSeconds * 1000", self.overlay
+            "expiresAt: stamp + durationSeconds * 1000", self.service
         )
         self.assertIn(
             "while (keyEntries.count > stackLimit) "
             "keyEntries.remove(keyEntries.count - 1)",
-            self.overlay,
+            self.service,
         )
         self.assertRegex(
-            self.overlay,
+            self.service,
             re.compile(
                 r"Timer\s*\{\s*interval:\s*50\s*repeat:\s*true\s*"
                 r"running:\s*keyEntries\.count\s*>\s*0",
