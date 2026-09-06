@@ -25,6 +25,7 @@ Item {
   readonly property int maxLabelLength: 48
   readonly property int maxReaderLineLength: 4096
   readonly property int maxRestartAttempts: 5
+  readonly property double serviceStartedAt: Date.now()
 
   property bool captureEnabled: false
   property string position: "bottom-right"
@@ -310,7 +311,9 @@ Item {
       duration: durationSeconds,
       stackLimit: stackLimit,
       readerStatus: readerStatus,
-      readerDetail: readerDetail
+      readerDetail: readerDetail,
+      serviceStartedAt: serviceStartedAt,
+      entryCount: keyEntries.count
     }
   }
 

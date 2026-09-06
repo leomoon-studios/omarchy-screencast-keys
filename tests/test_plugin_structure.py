@@ -111,6 +111,28 @@ class PluginStructureBaselineTests(unittest.TestCase):
         )
         self.assertIn("mask: Region {}", self.service)
 
+    def test_fullscreen_has_no_special_case_or_lifecycle_hook(self):
+        production_qml = self.service + self.key_stack
+        forbidden_fragments = (
+            "fullscreen",
+            "SUPER+F",
+            '"SUPER", "F"',
+            "onFullscreenChanged",
+        )
+        for fragment in forbidden_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertNotIn(fragment, production_qml)
+
+        self.assertEqual(
+            self.service.count("WlrLayershell.layer: WlrLayer.Overlay"), 1
+        )
+        self.assertEqual(
+            self.service.count(
+                "visible: root.captureEnabled && keyEntries.count > 0"
+            ),
+            1,
+        )
+
     def test_surface_uses_fixed_corner_geometry(self):
         geometry_fragments = (
             'readonly property real outerMargin: Style.spaceReal(42) * root.scaleFactor',
@@ -207,6 +229,13 @@ class PluginStructureBaselineTests(unittest.TestCase):
         )
         self.assertNotIn("readerProcess", self.bar_widget)
         self.assertNotIn("keyEntries", self.bar_widget)
+
+    def test_state_reports_service_identity_and_model_count(self):
+        self.assertIn(
+            "readonly property double serviceStartedAt: Date.now()", self.service
+        )
+        self.assertIn("serviceStartedAt: serviceStartedAt", self.service)
+        self.assertIn("entryCount: keyEntries.count", self.service)
 
     def test_entry_lifetime_and_stack_limit_are_pinned(self):
         self.assertIn(
