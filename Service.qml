@@ -529,6 +529,8 @@ Item {
       readonly property real rowHeight: keyFontMetrics.height
         + Style.spaceReal(14) * root.scaleFactor
       readonly property real rowWidthCap: Style.spaceReal(720) * root.scaleFactor
+      readonly property real verticalOverflowAllowance: Math.max(2,
+        Style.spaceReal(4) * root.scaleFactor)
       readonly property real availableWidth: Math.max(1,
         modelData.width - outerMargin * 2)
       readonly property real availableHeight: Math.max(1,
@@ -536,7 +538,8 @@ Item {
       readonly property real viewportWidth: Math.min(availableWidth, rowWidthCap)
       readonly property real viewportHeight: Math.min(availableHeight,
         rowHeight * root.stackLimit
-          + stackSpacing * Math.max(0, root.stackLimit - 1))
+          + stackSpacing * Math.max(0, root.stackLimit - 1)
+          + verticalOverflowAllowance)
 
       anchors {
         top: keyWindow.topPlacement

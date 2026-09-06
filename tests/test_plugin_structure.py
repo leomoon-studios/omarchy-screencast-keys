@@ -164,6 +164,8 @@ class PluginStructureBaselineTests(unittest.TestCase):
             'readonly property real rowHeight: keyFontMetrics.height',
             'rowHeight * root.stackLimit',
             'stackSpacing * Math.max(0, root.stackLimit - 1)',
+            'readonly property real verticalOverflowAllowance: Math.max(2,',
+            '+ verticalOverflowAllowance)',
             'implicitWidth: Math.ceil(viewportWidth)',
             'implicitHeight: Math.ceil(viewportHeight)',
             'top: keyWindow.topPlacement',
