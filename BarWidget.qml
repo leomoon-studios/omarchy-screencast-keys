@@ -1,7 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
-import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
@@ -10,23 +8,54 @@ BarWidget {
 
   moduleName: "leomoon-studios.omarchy-screencast-keys"
 
-  readonly property string pluginId: moduleName
-  readonly property string home: Quickshell.env("HOME")
-  readonly property string configPath: home + "/.config/" + pluginId + "/settings.json"
-  readonly property string omarchyShellPath: "/usr/share/omarchy/bin/omarchy-shell"
+  readonly property var controller: bar && bar.shell
+    && typeof bar.shell.serviceFor === "function"
+    ? bar.shell.serviceFor(moduleName) : null
 
   property bool opened: false
   property bool popoutSwitchClosing: false
-  property bool captureEnabled: false
-  property string positionSetting: "bottom-right"
-  property real scaleSetting: 1.0
-  property real previewScale: scaleSetting
-  property real durationSetting: 3.0
-  property real previewDuration: durationSetting
-  property int stackLimitSetting: 7
-  property int previewStackLimit: stackLimitSetting
-  property string readerStatus: "starting"
-  property string readerDetail: ""
+  readonly property bool captureEnabled: controller
+    ? controller.captureEnabled === true : false
+  readonly property string positionSetting: controller
+    ? String(controller.position) : "bottom-right"
+  readonly property real scaleSetting: controller
+    ? Number(controller.scaleFactor) : 1.0
+  readonly property real durationSetting: controller
+    ? Number(controller.durationSeconds) : 3.0
+  readonly property int stackLimitSetting: controller
+    ? Number(controller.stackLimit) : 7
+  readonly property string readerStatus: controller
+    ? String(controller.readerStatus) : "off"
+  readonly property string readerDetail: controller
+    ? String(controller.readerDetail) : ""
+
+  property real previewScale: 1.0
+  property real previewDuration: 3.0
+  property int previewStackLimit: 7
+
+  Binding {
+    target: root
+    property: "previewScale"
+    value: root.scaleSetting
+    when: !sizeSlider.dragging
+    restoreMode: Binding.RestoreNone
+  }
+
+  Binding {
+    target: root
+    property: "previewDuration"
+    value: root.durationSetting
+    when: !durationSlider.dragging
+    restoreMode: Binding.RestoreNone
+  }
+
+  Binding {
+    target: root
+    property: "previewStackLimit"
+    value: root.stackLimitSetting
+    when: !stackSlider.dragging
+    restoreMode: Binding.RestoreNone
+  }
 
   readonly property string statusLabel: {
     if (!captureEnabled || readerStatus === "off") return "Off"
@@ -39,8 +68,6 @@ BarWidget {
 
   function open() {
     opened = true
-    refreshState()
-    configFile.reload()
   }
 
   function close() { opened = false }
@@ -52,139 +79,33 @@ BarWidget {
     Qt.callLater(function() { root.popoutSwitchClosing = false })
   }
 
-  function send(method, value) {
-    var command = [omarchyShellPath, "-q", pluginId, method]
-    if (value !== undefined) command.push(String(value))
-    Quickshell.execDetached(command)
-  }
-
   function setEnabled(value) {
-    captureEnabled = !!value
-    readerStatus = captureEnabled ? "starting" : "off"
-    send("setEnabled", captureEnabled ? "true" : "false")
+    if (controller && typeof controller.setCaptureEnabled === "function")
+      controller.setCaptureEnabled(!!value)
   }
 
   function setPosition(value) {
-    positionSetting = value
-    send("setPosition", value)
+    if (controller && typeof controller.setPosition === "function")
+      controller.setPosition(value)
   }
 
   function setScale(value) {
-    var next = Math.max(0.6, Math.min(2.0, Math.round(Number(value) * 20) / 20))
-    scaleSetting = next
-    previewScale = next
-    send("setScale", next)
+    if (controller && typeof controller.setScale === "function")
+      controller.setScale(value)
   }
 
   function setDuration(value) {
-    var next = Math.max(1.0, Math.min(10.0, Math.round(Number(value) * 2) / 2))
-    durationSetting = next
-    previewDuration = next
-    send("setDuration", next)
-  }
-
-  function normalizedStackLimit(value) {
-    var number = Number(value)
-    if (!isFinite(number)) number = 7
-    return Math.max(1, Math.min(15, Math.round(number)))
+    if (controller && typeof controller.setDuration === "function")
+      controller.setDuration(value)
   }
 
   function setStackLimit(value) {
-    var next = normalizedStackLimit(value)
-    stackLimitSetting = next
-    previewStackLimit = next
-    send("setStackLimit", next)
-  }
-
-  function loadState(raw) {
-    var text = String(raw || "").trim()
-    if (text === "") return
-    try {
-      var state = JSON.parse(text)
-      if (state.enabled !== undefined) captureEnabled = !!state.enabled
-      if (state.position) positionSetting = String(state.position)
-      if (state.scale !== undefined) {
-        scaleSetting = Number(state.scale)
-        if (!sizeSlider.dragging) previewScale = scaleSetting
-      }
-      if (state.duration !== undefined) {
-        durationSetting = Number(state.duration)
-        if (!durationSlider.dragging) previewDuration = durationSetting
-      }
-      if (state.stackLimit !== undefined) {
-        stackLimitSetting = normalizedStackLimit(state.stackLimit)
-        if (!stackSlider.dragging) previewStackLimit = stackLimitSetting
-      }
-      readerStatus = String(state.readerStatus || readerStatus)
-      readerDetail = String(state.readerDetail || "")
-    } catch (error) {}
-  }
-
-  function loadSettings(raw) {
-    var text = String(raw || "").trim()
-    if (text === "") {
-      captureEnabled = false
-      return
-    }
-    try {
-      var settings = JSON.parse(text)
-      if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
-        captureEnabled = false
-        return
-      }
-      captureEnabled = settings.enabled === true
-      if (settings.position) positionSetting = String(settings.position)
-      if (settings.scale !== undefined) {
-        scaleSetting = Number(settings.scale)
-        if (!sizeSlider.dragging) previewScale = scaleSetting
-      }
-      if (settings.duration !== undefined) {
-        durationSetting = Number(settings.duration)
-        if (!durationSlider.dragging) previewDuration = durationSetting
-      }
-      if (settings.stackLimit !== undefined) {
-        stackLimitSetting = normalizedStackLimit(settings.stackLimit)
-        if (!stackSlider.dragging) previewStackLimit = stackLimitSetting
-      }
-    } catch (error) {
-      captureEnabled = false
-    }
-  }
-
-  function refreshState() {
-    if (!stateProbe.running) stateProbe.running = true
+    if (controller && typeof controller.setStackLimit === "function")
+      controller.setStackLimit(value)
   }
 
   implicitWidth: iconButton.implicitWidth
   implicitHeight: iconButton.implicitHeight
-
-  FileView {
-    id: configFile
-    path: root.configPath
-    watchChanges: true
-    printErrors: false
-    onLoaded: root.loadSettings(text())
-    onFileChanged: reload()
-  }
-
-  Process {
-    id: stateProbe
-    // The state call must not use -q: quiet mode deliberately suppresses the
-    // JSON response, which would leave this widget displaying "Starting…".
-    command: [root.omarchyShellPath, root.pluginId, "state"]
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.loadState(text)
-    }
-  }
-
-  Timer {
-    interval: root.opened ? 1000 : 5000
-    repeat: true
-    running: true
-    triggeredOnStart: true
-    onTriggered: root.refreshState()
-  }
 
   WidgetButton {
     id: iconButton

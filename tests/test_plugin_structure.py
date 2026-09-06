@@ -33,6 +33,61 @@ class PluginStructureBaselineTests(unittest.TestCase):
         self.assertNotIn("function open(", self.service)
         self.assertNotIn("function close(", self.service)
 
+    def test_bar_widget_binds_to_service_controller_directly(self):
+        self.assertIn(
+            'typeof bar.shell.serviceFor === "function"', self.bar_widget
+        )
+        self.assertIn(
+            "bar.shell.serviceFor(moduleName)", self.bar_widget
+        )
+        controller_bindings = (
+            "controller.captureEnabled",
+            "controller.position",
+            "controller.scaleFactor",
+            "controller.durationSeconds",
+            "controller.stackLimit",
+            "controller.readerStatus",
+            "controller.readerDetail",
+        )
+        for binding in controller_bindings:
+            with self.subTest(binding=binding):
+                self.assertIn(binding, self.bar_widget)
+
+        direct_calls = (
+            "controller.setCaptureEnabled(!!value)",
+            "controller.setPosition(value)",
+            "controller.setScale(value)",
+            "controller.setDuration(value)",
+            "controller.setStackLimit(value)",
+        )
+        for call in direct_calls:
+            with self.subTest(call=call):
+                self.assertIn(call, self.bar_widget)
+
+    def test_bar_widget_has_no_polling_or_shadow_state(self):
+        obsolete_fragments = (
+            "FileView {",
+            "Process {",
+            "id: stateProbe",
+            "function send(",
+            "function loadState(",
+            "function loadSettings(",
+            "function refreshState(",
+            "Quickshell.execDetached",
+            "omarchyShellPath",
+            "configPath",
+            "\n  property bool captureEnabled:",
+            "\n  property string positionSetting:",
+            "\n  property real scaleSetting:",
+            "\n  property real durationSetting:",
+            "\n  property int stackLimitSetting:",
+            "\n  property string readerStatus:",
+            "\n  property string readerDetail:",
+        )
+        for fragment in obsolete_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertNotIn(fragment, self.bar_widget)
+
     def test_surface_is_persistent_full_screen_and_click_through(self):
         self.assertIn("model: Quickshell.screens", self.service)
         self.assertEqual(self.service.count("PanelWindow {"), 1)
