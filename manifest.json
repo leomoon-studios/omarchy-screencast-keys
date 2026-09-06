@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "leomoon-studios.omarchy-screencast-keys",
   "name": "Omarchy Screencast Keys",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "author": "LeoMoon Studios",
   "description": "Shows keyboard and mouse chords in a passive, fullscreen-safe corner surface.",
   "kinds": [
