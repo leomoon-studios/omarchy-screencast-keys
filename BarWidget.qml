@@ -262,6 +262,7 @@ BarWidget {
         Button {
           width: parent.width
           text: "All monitors"
+          bordered: true
           selected: root.effectiveMonitorTarget === "all"
           onClicked: root.setMonitorTarget("all")
         }
@@ -279,6 +280,7 @@ BarWidget {
               required property string modelData
               Layout.fillWidth: true
               text: modelData
+              bordered: true
               selected: root.effectiveMonitorTarget === modelData
               onClicked: root.setMonitorTarget(modelData)
             }
@@ -305,24 +307,28 @@ BarWidget {
         Button {
           Layout.fillWidth: true
           text: "Top left"
+          bordered: true
           selected: root.positionSetting === "top-left"
           onClicked: root.setPosition("top-left")
         }
         Button {
           Layout.fillWidth: true
           text: "Top right"
+          bordered: true
           selected: root.positionSetting === "top-right"
           onClicked: root.setPosition("top-right")
         }
         Button {
           Layout.fillWidth: true
           text: "Bottom left"
+          bordered: true
           selected: root.positionSetting === "bottom-left"
           onClicked: root.setPosition("bottom-left")
         }
         Button {
           Layout.fillWidth: true
           text: "Bottom right"
+          bordered: true
           selected: root.positionSetting === "bottom-right"
           onClicked: root.setPosition("bottom-right")
         }

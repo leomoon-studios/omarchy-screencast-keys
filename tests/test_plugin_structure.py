@@ -384,6 +384,35 @@ class PluginStructureBaselineTests(unittest.TestCase):
             ),
         )
 
+    def test_monitor_and_position_buttons_have_visible_borders(self):
+        button_labels = (
+            "All monitors",
+            "Top left",
+            "Top right",
+            "Bottom left",
+            "Bottom right",
+        )
+        for label in button_labels:
+            with self.subTest(label=label):
+                self.assertRegex(
+                    self.bar_widget,
+                    re.compile(
+                        r"Button\s*\{[^}]*"
+                        + re.escape('text: "' + label + '"')
+                        + r"[^}]*bordered:\s*true",
+                        re.DOTALL,
+                    ),
+                )
+
+        self.assertRegex(
+            self.bar_widget,
+            re.compile(
+                r"Button\s*\{\s*required property string modelData[^}]*"
+                r"bordered:\s*true",
+                re.DOTALL,
+            ),
+        )
+
     def test_entry_lifetime_and_stack_limit_are_pinned(self):
         self.assertIn(
             "expiresAt: stamp + durationSeconds * 1000", self.service
