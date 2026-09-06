@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import qs.Commons
 
 Item {
   id: root
@@ -497,16 +498,65 @@ Item {
       root.addKeys(["SPACE"])
       return "ok"
     }
+
+    function demoLong(): string {
+      root.addKeys([
+        "EXTRA-LONG-KEY-LABEL-ONE", "EXTRA-LONG-KEY-LABEL-TWO",
+        "EXTRA-LONG-KEY-LABEL-THREE", "EXTRA-LONG-KEY-LABEL-FOUR",
+        "EXTRA-LONG-KEY-LABEL-FIVE", "EXTRA-LONG-KEY-LABEL-SIX",
+        "EXTRA-LONG-KEY-LABEL-SEVEN", "EXTRA-LONG-KEY-LABEL-EIGHT"
+      ])
+      return "ok"
+    }
   }
 
   Variants {
     model: Quickshell.screens
 
     PanelWindow {
+      id: keyWindow
       required property var modelData
       screen: modelData
       visible: root.captureEnabled && keyEntries.count > 0
-      anchors { top: true; bottom: true; left: true; right: true }
+
+      readonly property bool topPlacement: root.position.indexOf("top-") === 0
+      readonly property bool leftPlacement: root.position.indexOf("-left") !== -1
+      readonly property real outerMargin: Style.spaceReal(42) * root.scaleFactor
+      readonly property real stackSpacing: Style.spaceReal(8) * root.scaleFactor
+      readonly property real rowHeight: keyFontMetrics.height
+        + Style.spaceReal(14) * root.scaleFactor
+      readonly property real rowWidthCap: Style.spaceReal(720) * root.scaleFactor
+      readonly property real availableWidth: Math.max(1,
+        modelData.width - outerMargin * 2)
+      readonly property real availableHeight: Math.max(1,
+        modelData.height - outerMargin * 2)
+      readonly property real viewportWidth: Math.min(availableWidth, rowWidthCap)
+      readonly property real viewportHeight: Math.min(availableHeight,
+        rowHeight * root.stackLimit
+          + stackSpacing * Math.max(0, root.stackLimit - 1))
+
+      anchors {
+        top: keyWindow.topPlacement
+        bottom: !keyWindow.topPlacement
+        left: keyWindow.leftPlacement
+        right: !keyWindow.leftPlacement
+      }
+      margins {
+        top: keyWindow.topPlacement ? keyWindow.outerMargin : 0
+        bottom: keyWindow.topPlacement ? 0 : keyWindow.outerMargin
+        left: keyWindow.leftPlacement ? keyWindow.outerMargin : 0
+        right: keyWindow.leftPlacement ? 0 : keyWindow.outerMargin
+      }
+      implicitWidth: Math.ceil(viewportWidth)
+      implicitHeight: Math.ceil(viewportHeight)
+
+      FontMetrics {
+        id: keyFontMetrics
+        font.family: Style.font.family
+        font.pixelSize: Style.font.subtitle * root.scaleFactor
+        font.bold: true
+      }
+
       color: "transparent"
       exclusionMode: ExclusionMode.Ignore
       WlrLayershell.namespace: "leomoon-screencast-keys"

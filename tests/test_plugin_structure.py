@@ -103,10 +103,6 @@ class PluginStructureBaselineTests(unittest.TestCase):
         self.assertIn("nowMs: root.nowMs", self.service)
 
     def test_surface_remains_passive_and_click_through(self):
-        self.assertIn(
-            "anchors { top: true; bottom: true; left: true; right: true }",
-            self.service,
-        )
         self.assertIn('color: "transparent"', self.service)
         self.assertIn("exclusionMode: ExclusionMode.Ignore", self.service)
         self.assertIn("WlrLayershell.layer: WlrLayer.Overlay", self.service)
@@ -114,6 +110,35 @@ class PluginStructureBaselineTests(unittest.TestCase):
             "WlrLayershell.keyboardFocus: WlrKeyboardFocus.None", self.service
         )
         self.assertIn("mask: Region {}", self.service)
+
+    def test_surface_uses_fixed_corner_geometry(self):
+        geometry_fragments = (
+            'readonly property real outerMargin: Style.spaceReal(42) * root.scaleFactor',
+            'readonly property real rowWidthCap: Style.spaceReal(720) * root.scaleFactor',
+            'modelData.width - outerMargin * 2',
+            'modelData.height - outerMargin * 2',
+            'readonly property real rowHeight: keyFontMetrics.height',
+            'rowHeight * root.stackLimit',
+            'stackSpacing * Math.max(0, root.stackLimit - 1)',
+            'implicitWidth: Math.ceil(viewportWidth)',
+            'implicitHeight: Math.ceil(viewportHeight)',
+            'top: keyWindow.topPlacement',
+            'bottom: !keyWindow.topPlacement',
+            'left: keyWindow.leftPlacement',
+            'right: !keyWindow.leftPlacement',
+            'top: keyWindow.topPlacement ? keyWindow.outerMargin : 0',
+            'bottom: keyWindow.topPlacement ? 0 : keyWindow.outerMargin',
+            'left: keyWindow.leftPlacement ? keyWindow.outerMargin : 0',
+            'right: keyWindow.leftPlacement ? 0 : keyWindow.outerMargin',
+        )
+        for fragment in geometry_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.service)
+
+        self.assertNotIn(
+            "anchors { top: true; bottom: true; left: true; right: true }",
+            self.service,
+        )
 
     def test_key_stack_transition_timings_are_pinned(self):
         transition_patterns = (
@@ -142,14 +167,9 @@ class PluginStructureBaselineTests(unittest.TestCase):
             "ListView.TopToBottom : ListView.BottomToTop",
             self.key_stack,
         )
-        self.assertIn(
-            "anchors.leftMargin: root.leftPlacement ? root.outerMargin : 0",
-            self.key_stack,
-        )
-        self.assertIn(
-            "anchors.rightMargin: root.leftPlacement ? 0 : root.outerMargin",
-            self.key_stack,
-        )
+        self.assertIn("anchors.fill: parent", self.key_stack)
+        self.assertIn("anchors.left: root.leftPlacement", self.key_stack)
+        self.assertIn("anchors.right: root.leftPlacement", self.key_stack)
         self.assertIn(
             "color: Util.alpha(Color.popups.background, 0.96)", self.key_stack
         )
@@ -159,6 +179,20 @@ class PluginStructureBaselineTests(unittest.TestCase):
             self.key_stack,
         )
         self.assertIn("font.pixelSize: Style.font.subtitle * root.scaleFactor", self.key_stack)
+
+    def test_long_rows_are_bounded_inside_the_viewport(self):
+        self.assertIn("clip: true", self.key_stack)
+        self.assertIn(
+            "readonly property real labelWidthCap: Style.spaceReal(240) * scaleFactor",
+            self.key_stack,
+        )
+        self.assertIn(
+            "width: Math.min(implicitWidth, keyRowSlot.maximumLabelWidth)",
+            self.key_stack,
+        )
+        self.assertIn("elide: Text.ElideRight", self.key_stack)
+        self.assertIn("function demoLong(): string", self.service)
+        self.assertIn('"EXTRA-LONG-KEY-LABEL-EIGHT"', self.service)
 
     def test_reader_settings_entries_and_expiry_have_one_owner(self):
         self.assertEqual(self.service.count("ListModel { id: keyEntries }"), 1)

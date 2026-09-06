@@ -12,23 +12,19 @@ Item {
 
   readonly property bool topPlacement: position.indexOf("top-") === 0
   readonly property bool leftPlacement: position.indexOf("-left") !== -1
-  readonly property real outerMargin: Style.spaceReal(42) * scaleFactor
   readonly property real stackSpacing: Style.spaceReal(8) * scaleFactor
+  readonly property real chordSpacing: Style.spaceReal(7) * scaleFactor
+  readonly property real keycapPadding: Style.spaceReal(22) * scaleFactor
+  readonly property real labelWidthCap: Style.spaceReal(240) * scaleFactor
   readonly property real fadeDuration: 350
+  clip: true
 
   ListView {
     id: stack
-    width: parent.width
-    height: Math.min(contentHeight, Math.max(0, parent.height - root.outerMargin * 2))
-    anchors.top: root.topPlacement ? parent.top : undefined
-    anchors.bottom: root.topPlacement ? undefined : parent.bottom
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.topMargin: root.topPlacement ? root.outerMargin : 0
-    anchors.bottomMargin: root.topPlacement ? 0 : root.outerMargin
+    anchors.fill: parent
     spacing: root.stackSpacing
     interactive: false
-    clip: false
+    clip: true
     model: root.entries
     verticalLayoutDirection: root.topPlacement ? ListView.TopToBottom : ListView.BottomToTop
 
@@ -47,6 +43,14 @@ Item {
       required property string keyText
       required property double expiresAt
       readonly property var labels: keyText.split("\u001f")
+      readonly property real fittedLabelWidth: Math.max(
+        Style.spaceReal(24) * root.scaleFactor,
+        (stack.width - labels.length * root.keycapPadding
+          - Math.max(0, labels.length - 1)
+            * (root.chordSpacing * 2 + Style.font.subtitle * root.scaleFactor))
+          / Math.max(1, labels.length))
+      readonly property real maximumLabelWidth: Math.min(
+        root.labelWidthCap, fittedLabelWidth)
 
       width: stack.width
       height: keyRow.implicitHeight
@@ -57,9 +61,7 @@ Item {
         id: keyRow
         anchors.left: root.leftPlacement ? parent.left : undefined
         anchors.right: root.leftPlacement ? undefined : parent.right
-        anchors.leftMargin: root.leftPlacement ? root.outerMargin : 0
-        anchors.rightMargin: root.leftPlacement ? 0 : root.outerMargin
-        spacing: Style.spaceReal(7) * root.scaleFactor
+        spacing: root.chordSpacing
 
         Repeater {
           model: keyRowSlot.labels
@@ -67,11 +69,11 @@ Item {
           Row {
             required property int index
             required property string modelData
-            spacing: Style.spaceReal(7) * root.scaleFactor
+            spacing: root.chordSpacing
 
             BorderSurface {
               id: keycap
-              width: keyLabel.implicitWidth + Style.spaceReal(22) * root.scaleFactor
+              width: keyLabel.width + root.keycapPadding
               height: keyLabel.implicitHeight + Style.spaceReal(14) * root.scaleFactor
               radius: Math.max(3, Style.cornerRadius * root.scaleFactor)
               color: Util.alpha(Color.popups.background, 0.96)
@@ -82,6 +84,8 @@ Item {
                 anchors.centerIn: parent
                 textFormat: Text.PlainText
                 text: modelData
+                width: Math.min(implicitWidth, keyRowSlot.maximumLabelWidth)
+                elide: Text.ElideRight
                 color: Color.popups.text
                 font.family: Style.font.family
                 font.pixelSize: Style.font.subtitle * root.scaleFactor
