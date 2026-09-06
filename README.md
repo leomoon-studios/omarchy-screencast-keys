@@ -62,7 +62,7 @@ rm -rf ~/.config/leomoon-studios.omarchy-screencast-keys
 
 ## Input access
 
-Wayland does not let an ordinary client observe keys typed into other apps. The plugin's bundled reader therefore opens Linux keyboard and pointer event devices read-only using access already available to the Omarchy session. It never uses `wtype`, `ydotool`, or another input-injection mechanism. The plugin does not request elevated privileges or install udev rules. If input devices are unavailable, the menu reports **Global input access unavailable** without changing the system.
+Wayland does not let an ordinary client observe keys typed into other apps. The plugin's bundled reader therefore opens Linux keyboard and pointer event devices read-only using access already available to the Omarchy session. It never uses `wtype`, `ydotool`, or another input-injection mechanism. The plugin does not request elevated privileges or install udev rules. If only some input devices are readable, the menu reports **On with partial input access**; if none are readable, it reports **Global input access unavailable** without changing the system.
 
 Capture starts disabled on a fresh installation and remains disabled if the settings file is missing or malformed.
 

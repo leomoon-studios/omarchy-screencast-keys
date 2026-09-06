@@ -234,7 +234,7 @@ Item {
         addKeys(message.keys)
       } else if (message.type === "status") {
         var state = String(message.state || "error")
-        var allowed = ["ready", "permission-denied", "no-inputs", "error"]
+        var allowed = ["ready", "degraded", "permission-denied", "no-inputs", "error"]
         readerStatus = allowed.indexOf(state) !== -1 ? state : "error"
         readerDetail = String(message.detail || "").slice(0, 256)
       }

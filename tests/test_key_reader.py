@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 
 MODULE_PATH = Path(__file__).parents[1] / "scripts" / "key-reader.py"
@@ -122,6 +123,52 @@ class EventReaderRateLimitTests(unittest.TestCase):
             reader.emit = original_emit
 
         self.assertEqual(len(captured), 3)
+
+
+class EventReaderStatusTests(unittest.TestCase):
+    def rescan_status(self, readable_paths, discovered_paths, denied=False):
+        captured = []
+        event_reader = reader.EventReader()
+        event_reader.devices = {path: -1 for path in readable_paths}
+        open_error = PermissionError("denied") if denied else OSError("unavailable")
+        try:
+            with (
+                patch.object(reader, "emit", captured.append),
+                patch.object(reader.glob, "glob", return_value=discovered_paths),
+                patch.object(reader, "_sysfs_is_supported_input", return_value=True),
+                patch.object(reader.os, "open", side_effect=open_error),
+            ):
+                event_reader.rescan()
+        finally:
+            event_reader.selector.close()
+        return captured[-1]
+
+    def test_ready_when_all_discovered_devices_are_readable(self):
+        status = self.rescan_status(
+            ["/dev/input/event0"],
+            ["/dev/input/event0"],
+        )
+        self.assertEqual(status["state"], "ready")
+        self.assertEqual(status["devices"], 1)
+
+    def test_degraded_when_readable_and_denied_devices_coexist(self):
+        status = self.rescan_status(
+            ["/dev/input/event0"],
+            ["/dev/input/event0", "/dev/input/event1"],
+            denied=True,
+        )
+        self.assertEqual(status["state"], "degraded")
+        self.assertEqual(status["devices"], 1)
+        self.assertIn("1 unavailable", status["detail"])
+
+    def test_permission_denied_when_no_devices_are_readable(self):
+        status = self.rescan_status(
+            [],
+            ["/dev/input/event0"],
+            denied=True,
+        )
+        self.assertEqual(status["state"], "permission-denied")
+        self.assertEqual(status["devices"], 0)
 
 
 class ErrorDetailTests(unittest.TestCase):

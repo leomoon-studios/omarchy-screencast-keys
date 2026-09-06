@@ -77,6 +77,16 @@ class PluginStructureBaselineTests(unittest.TestCase):
             with self.subTest(call=call):
                 self.assertIn(call, self.bar_widget)
 
+    def test_partial_input_access_status_reaches_the_bar(self):
+        self.assertIn(
+            '["ready", "degraded", "permission-denied", "no-inputs", "error"]',
+            self.service,
+        )
+        self.assertIn(
+            'if (readerStatus === "degraded") return "On with partial input access"',
+            self.bar_widget,
+        )
+
     def test_bar_widget_has_no_polling_or_shadow_state(self):
         obsolete_fragments = (
             "FileView {",

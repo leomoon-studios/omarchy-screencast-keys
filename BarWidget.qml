@@ -63,6 +63,7 @@ BarWidget {
   readonly property string statusLabel: {
     if (!captureEnabled || readerStatus === "off") return "Off"
     if (readerStatus === "ready") return "On"
+    if (readerStatus === "degraded") return "On with partial input access"
     if (readerStatus === "permission-denied") return "Global input access unavailable"
     if (readerStatus === "no-inputs" || readerStatus === "no-keyboards") return "No input device found"
     if (readerStatus === "starting") return "Starting…"
@@ -378,7 +379,8 @@ BarWidget {
           textFormat: Text.PlainText
           text: root.readerDetail !== "" && root.readerStatus !== "ready"
             ? root.statusLabel + " — " + root.readerDetail : root.statusLabel
-          color: root.readerStatus === "permission-denied" ? Color.urgent
+          color: root.readerStatus === "permission-denied" || root.readerStatus === "degraded"
+            ? Color.urgent
             : Qt.darker(root.bar ? root.bar.foreground : Color.foreground, 1.35)
           font.family: root.bar ? root.bar.fontFamily : Style.font.family
           font.pixelSize: Style.font.caption

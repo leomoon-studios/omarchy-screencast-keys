@@ -311,15 +311,22 @@ class EventReader:
             except OSError:
                 os.close(fd)
 
-        if denied:
+        if self.devices and denied:
+            readable = len(self.devices)
+            self.status(
+                "degraded",
+                f"{readable} input device" + ("s" if readable != 1 else "")
+                + f" available; {denied} unavailable",
+            )
+        elif self.devices:
+            count = len(self.devices)
+            self.status("ready", f"{count} input device" + ("s" if count != 1 else ""))
+        elif denied:
             self.status(
                 "permission-denied",
                 f"Permission is required for {denied} input device"
                 + ("s" if denied != 1 else ""),
             )
-        elif self.devices:
-            count = len(self.devices)
-            self.status("ready", f"{count} input device" + ("s" if count != 1 else ""))
         elif candidates or paths:
             self.status("no-inputs", "No readable keyboard or mouse device was found")
         else:
