@@ -86,8 +86,10 @@ visibility, timer, model, or surface lifecycle hooks.
 
 - Left-click the SCK badge to open settings.
 - Right-click the icon to quickly turn capture on or off.
-- Use the hotkeys-only toggle, position buttons, size slider, duration slider,
-  and visible-keys slider in the settings popup.
+- Use the hotkeys-only toggle, monitor selector, position buttons, size slider,
+  duration slider, and visible-keys slider in the settings popup. The monitor
+  selector appears when more than one display is connected and can target all
+  monitors or one display by connector name.
 - The popup stays open while global shortcuts are pressed, making it possible
   to include the menu in a screenshot or recording. Click outside it or click
   the badge again to close it.

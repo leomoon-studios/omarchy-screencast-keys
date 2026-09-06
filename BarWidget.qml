@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import Quickshell
 import qs.Commons
 import qs.Ui
 
@@ -18,6 +19,8 @@ BarWidget {
     ? controller.captureEnabled === true : false
   readonly property bool hotkeysOnlySetting: controller
     ? controller.hotkeysOnly === true : false
+  readonly property string monitorTargetSetting: controller
+    ? String(controller.monitorTarget) : "all"
   readonly property string positionSetting: controller
     ? String(controller.position) : "bottom-right"
   readonly property real scaleSetting: controller
@@ -37,6 +40,13 @@ BarWidget {
   property bool scaleCommitPending: false
   property bool durationCommitPending: false
   property bool stackCommitPending: false
+  property var monitorOptions: []
+
+  readonly property string effectiveMonitorTarget: {
+    if (monitorTargetSetting === "all") return "all"
+    return monitorOptions.indexOf(monitorTargetSetting) !== -1
+      ? monitorTargetSetting : "all"
+  }
 
   Binding {
     target: root
@@ -95,6 +105,22 @@ BarWidget {
       controller.setHotkeysOnly(!!value)
   }
 
+  function refreshMonitors() {
+    if (controller && typeof controller.monitorNames === "function")
+      monitorOptions = controller.monitorNames()
+    else {
+      var names = []
+      for (var i = 0; i < Quickshell.screens.length; i++)
+        names.push(String(Quickshell.screens[i].name || ""))
+      monitorOptions = names
+    }
+  }
+
+  function setMonitorTarget(value) {
+    if (controller && typeof controller.setMonitorTarget === "function")
+      controller.setMonitorTarget(value)
+  }
+
   function setPosition(value) {
     if (controller && typeof controller.setPosition === "function")
       controller.setPosition(value)
@@ -114,6 +140,8 @@ BarWidget {
     if (controller && typeof controller.setStackLimit === "function")
       controller.setStackLimit(value)
   }
+
+  onOpenedChanged: if (opened) refreshMonitors()
 
   implicitWidth: iconButton.implicitWidth
   implicitHeight: iconButton.implicitHeight
@@ -207,6 +235,55 @@ BarWidget {
         accent: Color.accent
         fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
         onClicked: root.setHotkeysOnly(!root.hotkeysOnlySetting)
+      }
+
+      Rectangle {
+        visible: root.monitorOptions.length > 1
+        width: parent.width
+        height: visible ? 1 : 0
+        color: Util.alpha(root.bar ? root.bar.foreground : Color.foreground, 0.16)
+      }
+
+      Column {
+        visible: root.monitorOptions.length > 1
+        width: parent.width
+        spacing: Style.space(8)
+
+        Text {
+          width: parent.width
+          textFormat: Text.PlainText
+          text: "MONITOR"
+          color: Qt.darker(root.bar ? root.bar.foreground : Color.foreground, 1.45)
+          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+          font.pixelSize: Style.font.caption
+          font.bold: true
+        }
+
+        Button {
+          width: parent.width
+          text: "All monitors"
+          selected: root.effectiveMonitorTarget === "all"
+          onClicked: root.setMonitorTarget("all")
+        }
+
+        GridLayout {
+          width: parent.width
+          columns: 2
+          columnSpacing: Style.space(8)
+          rowSpacing: Style.space(8)
+
+          Repeater {
+            model: root.monitorOptions
+
+            Button {
+              required property string modelData
+              Layout.fillWidth: true
+              text: modelData
+              selected: root.effectiveMonitorTarget === modelData
+              onClicked: root.setMonitorTarget(modelData)
+            }
+          }
+        }
       }
 
       Text {

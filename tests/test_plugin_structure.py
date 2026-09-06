@@ -56,6 +56,7 @@ class PluginStructureBaselineTests(unittest.TestCase):
         controller_bindings = (
             "controller.captureEnabled",
             "controller.hotkeysOnly",
+            "controller.monitorTarget",
             "controller.position",
             "controller.scaleFactor",
             "controller.durationSeconds",
@@ -70,6 +71,7 @@ class PluginStructureBaselineTests(unittest.TestCase):
         direct_calls = (
             "controller.setCaptureEnabled(!!value)",
             "controller.setHotkeysOnly(!!value)",
+            "controller.setMonitorTarget(value)",
             "controller.setPosition(value)",
             "controller.setScale(value)",
             "controller.setDuration(value)",
@@ -109,6 +111,33 @@ class PluginStructureBaselineTests(unittest.TestCase):
             'if (readerStatus === "degraded") return "On with partial input access"',
             self.bar_widget,
         )
+
+    def test_monitor_target_is_persisted_and_filters_surfaces(self):
+        service_fragments = (
+            'property string monitorTarget: "all"',
+            "monitorTarget = parsed && parsed.monitor !== undefined",
+            "monitor: monitorTarget",
+            "function setMonitorTarget(value)",
+            "function monitorNames()",
+            "function screenIsTargeted(screen)",
+            "root.screenIsTargeted(modelData)",
+        )
+        for fragment in service_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.service)
+
+        bar_fragments = (
+            "onOpenedChanged: if (opened) refreshMonitors()",
+            "visible: root.monitorOptions.length > 1",
+            'text: "MONITOR"',
+            'text: "All monitors"',
+            "model: root.monitorOptions",
+            "selected: root.effectiveMonitorTarget === modelData",
+            "onClicked: root.setMonitorTarget(modelData)",
+        )
+        for fragment in bar_fragments:
+            with self.subTest(fragment=fragment):
+                self.assertIn(fragment, self.bar_widget)
 
     def test_bar_widget_has_no_polling_or_shadow_state(self):
         obsolete_fragments = (

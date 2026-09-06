@@ -30,6 +30,7 @@ Item {
 
   property bool captureEnabled: false
   property bool hotkeysOnly: false
+  property string monitorTarget: "all"
   property string position: "bottom-right"
   property real scaleFactor: 1.0
   property real durationSeconds: 3.0
@@ -52,6 +53,27 @@ Item {
     var candidate = String(value || "")
     return candidate === "top-left" || candidate === "top-right"
       || candidate === "bottom-left" || candidate === "bottom-right"
+  }
+
+  function normalizedMonitorTarget(value) {
+    var candidate = String(value || "all").trim().slice(0, 128)
+    return candidate === "" ? "all" : candidate
+  }
+
+  function monitorNames() {
+    var names = []
+    for (var i = 0; i < Quickshell.screens.length; i++) {
+      var name = String(Quickshell.screens[i].name || "").trim()
+      if (name !== "" && names.indexOf(name) === -1) names.push(name)
+    }
+    return names
+  }
+
+  function screenIsTargeted(screen) {
+    if (monitorTarget === "all") return true
+    var names = monitorNames()
+    if (names.indexOf(monitorTarget) === -1) return true
+    return !!screen && String(screen.name || "") === monitorTarget
   }
 
   function normalizedScale(value) {
@@ -120,6 +142,8 @@ Item {
     // closed. IPC still uses boolValue() for its string arguments.
     captureEnabled = !!(parsed && parsed.enabled === true)
     hotkeysOnly = !!(parsed && parsed.hotkeysOnly === true)
+    monitorTarget = parsed && parsed.monitor !== undefined
+      ? normalizedMonitorTarget(parsed.monitor) : "all"
     position = parsed && validPosition(parsed.position)
       ? String(parsed.position) : "bottom-right"
     scaleFactor = parsed && parsed.scale !== undefined
@@ -132,6 +156,7 @@ Item {
     settingsReady = true
 
     if (!parsed || parsed.version !== 1 || parsed.hotkeysOnly === undefined
+        || parsed.monitor === undefined
         || parsed.duration === undefined
         || parsed.stackLimit === undefined) scheduleSave()
     handleLockStateChanged()
@@ -148,6 +173,7 @@ Item {
       version: 1,
       enabled: captureEnabled,
       hotkeysOnly: hotkeysOnly,
+      monitor: monitorTarget,
       position: position,
       scale: scaleFactor,
       duration: durationSeconds,
@@ -178,6 +204,13 @@ Item {
           keyEntries.remove(i)
       }
     }
+    scheduleSave()
+  }
+
+  function setMonitorTarget(value) {
+    var next = normalizedMonitorTarget(value)
+    if (monitorTarget === next) return
+    monitorTarget = next
     scheduleSave()
   }
 
@@ -319,6 +352,7 @@ Item {
     return {
       enabled: captureEnabled,
       hotkeysOnly: hotkeysOnly,
+      monitor: monitorTarget,
       position: position,
       scale: scaleFactor,
       duration: durationSeconds,
@@ -518,6 +552,7 @@ Item {
       required property var modelData
       screen: modelData
       visible: root.captureEnabled && keyEntries.count > 0
+        && root.screenIsTargeted(modelData)
 
       readonly property bool topPlacement: root.position.indexOf("top-") === 0
       readonly property bool leftPlacement: root.position.indexOf("-left") !== -1
