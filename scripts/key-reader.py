@@ -19,7 +19,10 @@ import sys
 import time
 
 
+EV_SYN = 0x00
 EV_KEY = 0x01
+SYN_REPORT = 0
+SYN_DROPPED = 3
 KEY_ENTER = 28
 KEY_A = 30
 KEY_Z = 44
@@ -44,6 +47,7 @@ MAX_OUTPUT_EVENTS_PER_SECOND = 120.0
 MAX_OUTPUT_BURST = 120.0
 MAX_READ_BATCHES = 16
 MAX_ERROR_DETAIL_LENGTH = 256
+KEY_BITMAP_BYTES = 96
 
 MODIFIERS = {
     29: "CTRL",       # left ctrl
@@ -178,6 +182,17 @@ class KeyChordFormatter:
             if token[0] != source
         }
 
+    def sync_source_modifiers(self, source: str, pressed_codes: set[int]) -> None:
+        """Replace one device's modifier state after an input queue overrun."""
+        self.release_source(source)
+        for code in pressed_codes:
+            if code in MODIFIERS:
+                state = ModifierState(MODIFIERS[code])
+                # The events leading to this state were lost, so suppress a
+                # possibly-spurious standalone modifier on its next release.
+                state.used = True
+                self._pressed[(source, code)] = state
+
 
 class TokenBucket:
     """Bound event output while allowing short bursts of normal input."""
@@ -216,6 +231,14 @@ def _event_bits(fd: int, event_type: int, size: int) -> bytes:
     return bytes(buffer)
 
 
+def _pressed_modifier_codes(fd: int) -> set[int]:
+    """Return modifiers currently held according to the kernel."""
+    buffer = bytearray(KEY_BITMAP_BYTES)
+    fcntl.ioctl(fd, _ioc_read(0x18, len(buffer)), buffer, True)
+    bits = bytes(buffer)
+    return {code for code in MODIFIERS if _bit_is_set(bits, code)}
+
+
 def _bit_is_set(bits: bytes, bit: int) -> bool:
     byte = bit // 8
     return byte < len(bits) and bool(bits[byte] & (1 << (bit % 8)))
@@ -225,7 +248,7 @@ def _is_supported_input_fd(fd: int) -> bool:
     event_types = _event_bits(fd, 0, 16)
     if not _bit_is_set(event_types, EV_KEY):
         return False
-    keys = _event_bits(fd, EV_KEY, 96)
+    keys = _event_bits(fd, EV_KEY, KEY_BITMAP_BYTES)
     is_keyboard = all(
         _bit_is_set(keys, code) for code in (KEY_ENTER, KEY_A, KEY_Z, KEY_SPACE)
     )
@@ -259,6 +282,7 @@ class EventReader:
         self.devices: dict[str, int] = {}
         self.formatter = KeyChordFormatter()
         self.output_limiter = TokenBucket()
+        self.desynced_sources: set[str] = set()
         self._last_status: tuple[str, str, int] | None = None
 
     def status(self, state: str, detail: str = "") -> None:
@@ -272,6 +296,7 @@ class EventReader:
         fd = self.devices.pop(path, None)
         if fd is None:
             return
+        self.desynced_sources.discard(path)
         self.formatter.release_source(path)
         try:
             self.selector.unregister(fd)
@@ -343,6 +368,17 @@ class EventReader:
                     return
                 usable = len(data) - (len(data) % EVENT.size)
                 for _seconds, _micros, event_type, code, value in EVENT.iter_unpack(data[:usable]):
+                    if event_type == EV_SYN and code == SYN_DROPPED:
+                        self.desynced_sources.add(path)
+                        self.formatter.release_source(path)
+                        continue
+                    if path in self.desynced_sources:
+                        if event_type == EV_SYN and code == SYN_REPORT:
+                            self.desynced_sources.discard(path)
+                            self.formatter.sync_source_modifiers(
+                                path, _pressed_modifier_codes(fd)
+                            )
+                        continue
                     if event_type != EV_KEY or not displayable_code(code):
                         continue
                     for keys in self.formatter.handle(code, value, path):

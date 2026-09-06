@@ -64,6 +64,10 @@ class KeyChordFormatterTests(unittest.TestCase):
         self.formatter.release_source("external")
         self.assertEqual(self.formatter.handle(38, 1, "laptop"), [["L"]])
 
+    def test_resynchronized_modifier_does_not_emit_standalone_release(self):
+        self.formatter.sync_source_modifiers("keyboard", {125})
+        self.assertEqual(self.formatter.handle(125, 0, "keyboard"), [])
+
     def test_friendly_key_names(self):
         self.assertEqual(reader.key_name(111), "DELETE")
         self.assertEqual(reader.key_name(164), "PLAY/PAUSE")
@@ -123,6 +127,56 @@ class EventReaderRateLimitTests(unittest.TestCase):
             reader.emit = original_emit
 
         self.assertEqual(len(captured), 3)
+
+
+class EventReaderSynchronizationTests(unittest.TestCase):
+    def read_events(self, events, pressed_modifiers):
+        captured = []
+        with tempfile.TemporaryFile() as source:
+            for event_type, code, value in events:
+                source.write(reader.EVENT.pack(0, 0, event_type, code, value))
+            source.seek(0)
+            fd = os.dup(source.fileno())
+            event_reader = reader.EventReader()
+            event_reader.devices["test-device"] = fd
+            try:
+                with (
+                    patch.object(reader, "emit", captured.append),
+                    patch.object(
+                        reader,
+                        "_pressed_modifier_codes",
+                        return_value=set(pressed_modifiers),
+                    ),
+                ):
+                    event_reader.read_device("test-device", fd)
+            finally:
+                event_reader.close_device("test-device")
+                event_reader.selector.close()
+        return captured
+
+    def test_syn_dropped_discards_events_until_report_and_resyncs_modifiers(self):
+        captured = self.read_events(
+            [
+                (reader.EV_SYN, reader.SYN_DROPPED, 0),
+                (reader.EV_KEY, reader.KEY_A, 1),
+                (reader.EV_SYN, reader.SYN_REPORT, 0),
+                (reader.EV_KEY, 38, 1),
+            ],
+            {125},
+        )
+        self.assertEqual(captured, [{"type": "key", "keys": ["SUPER", "L"]}])
+
+    def test_syn_dropped_clears_a_stale_modifier(self):
+        captured = self.read_events(
+            [
+                (reader.EV_KEY, 125, 1),
+                (reader.EV_SYN, reader.SYN_DROPPED, 0),
+                (reader.EV_SYN, reader.SYN_REPORT, 0),
+                (reader.EV_KEY, 38, 1),
+            ],
+            set(),
+        )
+        self.assertEqual(captured, [{"type": "key", "keys": ["L"]}])
 
 
 class EventReaderStatusTests(unittest.TestCase):
