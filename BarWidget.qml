@@ -200,6 +200,18 @@ BarWidget {
     contentWidth: Style.space(380)
     contentHeight: settingsColumn.implicitHeight + padding * 2
 
+    // Installed plugins only see their own registered click targets. Keep the
+    // physical bar outside this popup's input region so the real bar receives
+    // clicks and performs its normal one-click panel handoff.
+    mask: Region {
+      x: popup.barPos === "left" ? popup.barW : 0
+      y: popup.barPos === "top" ? popup.barH : 0
+      width: Math.max(0, popup.screenW
+        - ((popup.barPos === "left" || popup.barPos === "right") ? popup.barW : 0))
+      height: Math.max(0, popup.screenH
+        - ((popup.barPos === "top" || popup.barPos === "bottom") ? popup.barH : 0))
+    }
+
     Column {
       id: settingsColumn
       width: parent.width
